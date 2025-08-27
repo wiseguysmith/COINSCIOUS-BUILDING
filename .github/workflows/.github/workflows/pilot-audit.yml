@@ -1,0 +1,73 @@
+name: Pilot Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Build & Test (with gas)
+        run: |
+          mkdir -p audit
+          forge --version
+          forge build
+          forge test --gas-report | tee audit/gas-report-contracts.txt
+
+      - name: Upload contract artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-contracts
+          path: audit/**
+
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: coinscious
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        ports:
+          - 5432:5432
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/coinscious?schema=public
+      JWT_SECRET: dev_jwt_secret_for_tests
+      KYC_HMAC_SECRET: dev_hmac_secret_for_tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install deps & run tests
+        run: |
+          corepack enable
+          cd services/api
+          pnpm install --frozen-lockfile
+          pnpm prisma migrate deploy
+          pnpm test
+          mkdir -p ../../audit/webhook-samples ../../audit/audit-zip-sample
+
+      - name: Upload API artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-api
+          path: audit/**
