@@ -23,9 +23,12 @@ interface IComplianceRegistry {
         uint64 expiresAt;
     }
 
-
-
-
+    /**
+     * @dev Events emitted by the compliance registry
+     */
+    event ClaimsSet(address indexed wallet, Claims claims);
+    event WalletRevoked(address indexed wallet);
+    event WalletWhitelisted(address indexed wallet);
 
     /**
      * @dev Sets compliance claims for a wallet

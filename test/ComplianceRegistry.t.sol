@@ -49,7 +49,7 @@ contract ComplianceRegistryTest is Test {
         });
         
         vm.expectEmit(true, false, false, true);
-        emit ComplianceRegistry.ClaimsSet(user1, claims);
+        emit ClaimsSet(user1, claims);
         
         registry.setClaims(user1, claims);
         
@@ -164,7 +164,7 @@ contract ComplianceRegistryTest is Test {
         
         // Then revoke
         vm.expectEmit(true, false, false, true);
-        emit ComplianceRegistry.WalletRevoked(user1);
+        emit WalletRevoked(user1);
         
         registry.revoke(user1);
         
@@ -197,7 +197,7 @@ contract ComplianceRegistryTest is Test {
         
         // Then whitelist
         vm.expectEmit(true, false, false, true);
-        emit ComplianceRegistry.WalletWhitelisted(user1);
+        emit WalletWhitelisted(user1);
         
         registry.whitelist(user1);
         

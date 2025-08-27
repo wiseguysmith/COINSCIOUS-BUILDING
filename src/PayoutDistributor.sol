@@ -91,7 +91,7 @@ contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard {
         // Store snapshot data
         snapshots[snapshotId] = Snapshot({
             totalSupply: totalSupply,
-            blockNumber: block.number,
+            blockNumber: uint64(block.number),
             timestamp: uint64(block.timestamp)
         });
         
