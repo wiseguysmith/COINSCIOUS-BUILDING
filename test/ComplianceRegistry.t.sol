@@ -31,6 +31,11 @@ contract ComplianceRegistryTest is Test {
         vm.stopPrank();
     }
     
+    // Mirror events for expectEmit usage
+    event ClaimsSet(address indexed wallet, IComplianceRegistry.Claims claims);
+    event WalletRevoked(address indexed wallet);
+    event WalletWhitelisted(address indexed wallet);
+    
     function test_Constructor() public {
         assertTrue(registry.hasRole(registry.DEFAULT_ADMIN_ROLE(), owner));
         assertTrue(registry.hasRole(registry.ORACLE_ROLE(), owner));
@@ -42,6 +47,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: uint64(block.timestamp + 30 days),
             revoked: false,
@@ -69,6 +75,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -86,6 +93,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: true,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -103,6 +111,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims = IComplianceRegistry.Claims({
             countryCode: bytes2(0),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -120,8 +129,9 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
-            lockupUntil: uint64(block.timestamp - 1 days),
+            lockupUntil: 1, // This will be less than block.timestamp
             revoked: false,
             expiresAt: uint64(block.timestamp + 365 days)
         });
@@ -137,10 +147,11 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
-            expiresAt: uint64(block.timestamp - 1 days)
+            expiresAt: 1 // This will be less than block.timestamp
         });
         
         vm.expectRevert("ComplianceRegistry: expiration must be in future");
@@ -154,6 +165,7 @@ contract ComplianceRegistryTest is Test {
         vm.startPrank(oracle);
         IComplianceRegistry.Claims memory claims = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -188,6 +200,7 @@ contract ComplianceRegistryTest is Test {
         vm.startPrank(oracle);
         IComplianceRegistry.Claims memory claims = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: true,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -230,6 +243,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: true,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -255,6 +269,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: true,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -275,6 +290,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: true,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -296,6 +312,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims1 = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -304,6 +321,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims2 = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -313,9 +331,10 @@ contract ComplianceRegistryTest is Test {
         registry.setClaims(user1, claims1);
         registry.setClaims(user2, claims2);
         
-        (bool ok, string memory reason) = registry.isTransferAllowed(user1, user2, keccak256("REG_D"), 1000);
+        (bool ok, bytes32 reasonCode, uint64 lockTs) = registry.isTransferAllowed(user1, user2, keccak256("REG_D"), 1000);
         assertTrue(ok);
-        assertEq(reason, registry.REASON_OK());
+        assertEq(reasonCode, registry.ERR_OK());
+        assertEq(lockTs, 0);
         
         vm.stopPrank();
     }
@@ -325,6 +344,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims1 = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -333,6 +353,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims2 = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: false,
             lockupUntil: 0,
             revoked: false,
@@ -342,9 +363,10 @@ contract ComplianceRegistryTest is Test {
         registry.setClaims(user1, claims1);
         registry.setClaims(user2, claims2);
         
-        (bool ok, string memory reason) = registry.isTransferAllowed(user1, user2, keccak256("REG_D"), 1000);
+        (bool ok, bytes32 reasonCode2, uint64 lockTs2) = registry.isTransferAllowed(user1, user2, keccak256("REG_D"), 1000);
         assertFalse(ok);
-        assertEq(reason, registry.REASON_NOT_ACCREDITED());
+        assertEq(reasonCode2, registry.ERR_DESTINATION_NOT_ACCREDITED_REG_D());
+        assertEq(lockTs2, 0);
         
         vm.stopPrank();
     }
@@ -354,6 +376,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims1 = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -362,6 +385,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims2 = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -371,9 +395,10 @@ contract ComplianceRegistryTest is Test {
         registry.setClaims(user1, claims1);
         registry.setClaims(user2, claims2);
         
-        (bool ok, string memory reason) = registry.isTransferAllowed(user1, user2, keccak256("REG_S"), 1000);
+        (bool ok, bytes32 reasonCode3, uint64 lockTs3) = registry.isTransferAllowed(user1, user2, keccak256("REG_S"), 1000);
         assertFalse(ok);
-        assertEq(reason, registry.REASON_US_PERSON_RESTRICTED());
+        assertEq(reasonCode3, registry.ERR_REG_S_US_PERSON_RESTRICTED());
+        assertEq(lockTs3, 0);
         
         vm.stopPrank();
     }
@@ -383,6 +408,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims1 = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -391,6 +417,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims2 = IComplianceRegistry.Claims({
             countryCode: bytes2("CA"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -400,9 +427,10 @@ contract ComplianceRegistryTest is Test {
         registry.setClaims(user1, claims1);
         registry.setClaims(user2, claims2);
         
-        (bool ok, string memory reason) = registry.isTransferAllowed(user1, user2, keccak256("REG_S"), 1000);
+        (bool ok, bytes32 reasonCode4, uint64 lockTs4) = registry.isTransferAllowed(user1, user2, keccak256("REG_S"), 1000);
         assertTrue(ok);
-        assertEq(reason, registry.REASON_OK());
+        assertEq(reasonCode4, registry.ERR_OK());
+        assertEq(lockTs4, 0);
         
         vm.stopPrank();
     }
@@ -412,6 +440,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims1 = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: uint64(block.timestamp + 30 days),
             revoked: false,
@@ -420,6 +449,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims2 = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -429,9 +459,10 @@ contract ComplianceRegistryTest is Test {
         registry.setClaims(user1, claims1);
         registry.setClaims(user2, claims2);
         
-        (bool ok, string memory reason) = registry.isTransferAllowed(user1, user2, keccak256("REG_D"), 1000);
+        (bool ok, bytes32 reasonCode5, uint64 lockTs5) = registry.isTransferAllowed(user1, user2, keccak256("REG_D"), 1000);
         assertFalse(ok);
-        assertTrue(keccak256(abi.encodePacked(reason)) == keccak256(abi.encodePacked(registry.REASON_LOCKUP_ACTIVE(), "30")));
+        assertEq(reasonCode5, registry.ERR_LOCKUP_ACTIVE());
+        assertGt(lockTs5, uint64(block.timestamp));
         
         vm.stopPrank();
     }
@@ -441,6 +472,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims2 = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -449,9 +481,10 @@ contract ComplianceRegistryTest is Test {
         
         registry.setClaims(user2, claims2);
         
-        (bool ok, string memory reason) = registry.isTransferAllowed(user1, user2, keccak256("REG_D"), 1000);
+        (bool ok, bytes32 reasonCode6, uint64 lockTs6) = registry.isTransferAllowed(user1, user2, keccak256("REG_D"), 1000);
         assertFalse(ok);
-        assertEq(reason, registry.REASON_NOT_WHITELISTED());
+        assertEq(reasonCode6, registry.ERR_NOT_WHITELISTED());
+        assertEq(lockTs6, 0);
         
         vm.stopPrank();
     }
@@ -461,6 +494,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims1 = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -469,9 +503,10 @@ contract ComplianceRegistryTest is Test {
         
         registry.setClaims(user1, claims1);
         
-        (bool ok, string memory reason) = registry.isTransferAllowed(user1, user2, keccak256("REG_D"), 1000);
+        (bool ok, bytes32 reasonCode7, uint64 lockTs7) = registry.isTransferAllowed(user1, user2, keccak256("REG_D"), 1000);
         assertFalse(ok);
-        assertEq(reason, registry.REASON_NOT_WHITELISTED());
+        assertEq(reasonCode7, registry.ERR_NOT_WHITELISTED());
+        assertEq(lockTs7, 0);
         
         vm.stopPrank();
     }
@@ -481,6 +516,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: uint64(block.timestamp + 30 days),
             revoked: false,
@@ -502,6 +538,7 @@ contract ComplianceRegistryTest is Test {
     function test_GetClaims_NoClaims() public {
         IComplianceRegistry.Claims memory claims = registry.getClaims(user1);
         assertEq(claims.countryCode, bytes2(0));
+        assertFalse(claims.usTaxResident);
         assertFalse(claims.accredited);
         assertEq(claims.lockupUntil, 0);
         assertFalse(claims.revoked);
@@ -513,6 +550,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims1 = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -523,6 +561,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims2 = IComplianceRegistry.Claims({
             countryCode: bytes2("CA"),
+            usTaxResident: false,
             accredited: false,
             lockupUntil: uint64(block.timestamp + 60 days),
             revoked: false,
@@ -546,6 +585,7 @@ contract ComplianceRegistryTest is Test {
         
         IComplianceRegistry.Claims memory claims = IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: true,
             accredited: true,
             lockupUntil: 0,
             revoked: false,

@@ -12,6 +12,9 @@ contract LogAnchor is Ownable {
     // Mapping from UTC day (YYYYMMDD format) to Merkle root
     mapping(uint256 => bytes32) public dailyRoots;
     
+    // Counter for committed days (for efficient counting)
+    uint256 public committedDaysCount;
+    
     constructor() Ownable(msg.sender) {}
     
     // Events
@@ -34,6 +37,7 @@ contract LogAnchor is Ownable {
         bytes32 existingRoot = dailyRoots[day];
         if (existingRoot == bytes32(0)) {
             dailyRoots[day] = root;
+            committedDaysCount++;
             emit LogRootCommitted(day, root, block.timestamp);
         } else {
             // Allow updates for same-day corrections (within same UTC day)
@@ -62,6 +66,7 @@ contract LogAnchor is Ownable {
             bytes32 existingRoot = dailyRoots[day];
             if (existingRoot == bytes32(0)) {
                 dailyRoots[day] = root;
+                committedDaysCount++;
                 emit LogRootCommitted(day, root, block.timestamp);
             } else {
                 dailyRoots[day] = root;
@@ -84,13 +89,7 @@ contract LogAnchor is Ownable {
      * @dev This is a view function that scans the mapping
      * @return count Approximate count of days with committed roots
      */
-    function getCommittedDaysCount() external view returns (uint256 count) {
-        // Note: This is expensive for large ranges, use sparingly
-        // In production, you might want to maintain a counter
-        for (uint256 day = MIN_DAY; day <= MAX_DAY; day++) {
-            if (dailyRoots[day] != bytes32(0)) {
-                count++;
-            }
-        }
+    function getCommittedDaysCount() external view returns (uint256) {
+        return committedDaysCount;
     }
 }

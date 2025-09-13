@@ -6,6 +6,7 @@ import {SecurityToken} from "../src/SecurityToken.sol";
 import {ComplianceRegistry} from "../src/ComplianceRegistry.sol";
 import {IComplianceRegistry} from "../src/interfaces/IComplianceRegistry.sol";
 import {MockUSDC} from "./mocks/MockUSDC.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract SecurityTokenTest is Test {
     SecurityToken public token;
@@ -17,6 +18,7 @@ contract SecurityTokenTest is Test {
     address public user1;
     address public user2;
     address public user3;
+    address public user4;
     
     bytes32 public constant REG_D = keccak256("REG_D");
     bytes32 public constant REG_S = keccak256("REG_S");
@@ -36,7 +38,8 @@ contract SecurityTokenTest is Test {
         registry = new ComplianceRegistry();
         
         // Deploy security token
-        token = new SecurityToken(
+        token = new SecurityToken();
+        token.initialize(
             "Test Security Token",
             "TEST",
             owner,
@@ -58,6 +61,7 @@ contract SecurityTokenTest is Test {
         // User 1: US accredited investor
         registry.setClaims(user1, IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: 0,
             revoked: false,
@@ -67,7 +71,8 @@ contract SecurityTokenTest is Test {
         // User 2: Non-US investor
         registry.setClaims(user2, IComplianceRegistry.Claims({
             countryCode: bytes2("UK"),
-            accredited: false,
+            usTaxResident: false,
+            accredited: true, // Changed to true for REG_D transfers
             lockupUntil: 0,
             revoked: false,
             expiresAt: uint64(block.timestamp + 365 days)
@@ -76,8 +81,20 @@ contract SecurityTokenTest is Test {
         // User 3: US investor with lockup
         registry.setClaims(user3, IComplianceRegistry.Claims({
             countryCode: bytes2("US"),
+            usTaxResident: false,
             accredited: true,
             lockupUntil: uint64(block.timestamp + 30 days),
+            revoked: false,
+            expiresAt: uint64(block.timestamp + 365 days)
+        }));
+        
+        // User 4: Non-accredited user for testing
+        user4 = makeAddr("user4");
+        registry.setClaims(user4, IComplianceRegistry.Claims({
+            countryCode: bytes2("CA"),
+            usTaxResident: false,
+            accredited: false,
+            lockupUntil: 0,
             revoked: false,
             expiresAt: uint64(block.timestamp + 365 days)
         }));
@@ -124,7 +141,7 @@ contract SecurityTokenTest is Test {
         
         bytes32 invalidPartition = keccak256("INVALID");
         
-        vm.expectRevert("SecurityToken: invalid partition");
+        vm.expectRevert("COMPLIANCE_VIOLATION");
         token.mintByPartition(invalidPartition, user1, 1000 * 10**18, "");
         
         vm.stopPrank();
@@ -135,7 +152,7 @@ contract SecurityTokenTest is Test {
         
         address nonWhitelisted = makeAddr("nonWhitelisted");
         
-        vm.expectRevert("WALLET_NOT_WHITELISTED");
+        vm.expectRevert("COMPLIANCE_VIOLATION");
         token.mintByPartition(REG_D, nonWhitelisted, 1000 * 10**18, "");
         
         vm.stopPrank();
@@ -203,8 +220,8 @@ contract SecurityTokenTest is Test {
         // Try to transfer to non-accredited user
         vm.startPrank(user1);
         
-        vm.expectRevert("DESTINATION_NOT_ACCREDITED_REG_D");
-        token.transferByPartition(REG_D, user2, 100 * 10**18, "");
+        vm.expectRevert("COMPLIANCE_VIOLATION");
+        token.transferByPartition(REG_D, user4, 100 * 10**18, "");
         
         vm.stopPrank();
     }
@@ -218,7 +235,7 @@ contract SecurityTokenTest is Test {
         // Try to transfer REG_S to US person
         vm.startPrank(user2);
         
-        vm.expectRevert("REG_S_RESTRICTED_US_PERSON");
+        vm.expectRevert("COMPLIANCE_VIOLATION");
         token.transferByPartition(REG_S, user1, 100 * 10**18, "");
         
         vm.stopPrank();
@@ -256,11 +273,12 @@ contract SecurityTokenTest is Test {
         vm.startPrank(controller);
         
         uint256 transferAmount = 100 * 10**18;
+        bytes32 reasonCode = keccak256("COURT_ORDER");
         string memory reason = "Emergency transfer";
         
         // TODO: Add event emission test once events are properly configured
         
-        token.forceTransfer(REG_D, user1, user2, transferAmount, reason);
+        token.forceTransfer(REG_D, user1, user2, transferAmount, reasonCode, reason);
         
         assertEq(token.balanceOfByPartition(user1, REG_D), 900 * 10**18);
         assertEq(token.balanceOfByPartition(user2, REG_D), transferAmount);
@@ -272,7 +290,7 @@ contract SecurityTokenTest is Test {
         vm.startPrank(user1);
         
         vm.expectRevert("SecurityToken: caller is not controller");
-        token.forceTransfer(REG_D, user1, user2, 100 * 10**18, "reason");
+        token.forceTransfer(REG_D, user1, user2, 100 * 10**18, keccak256("COURT_ORDER"), "reason");
         
         vm.stopPrank();
     }
@@ -288,13 +306,13 @@ contract SecurityTokenTest is Test {
         vm.startPrank(nonTimelock);
         
         vm.expectRevert("SecurityToken: caller is not controller");
-        token.forceTransfer(REG_D, user1, user2, 100 * 10**18, "Emergency transfer");
+        token.forceTransfer(REG_D, user1, user2, 100 * 10**18, keccak256("COURT_ORDER"), "Emergency transfer");
         
         vm.stopPrank();
         
         // Verify only the actual controller can call it
         vm.startPrank(controller);
-        token.forceTransfer(REG_D, user1, user2, 100 * 10**18, "Emergency transfer");
+        token.forceTransfer(REG_D, user1, user2, 100 * 10**18, keccak256("COURT_ORDER"), "Emergency transfer");
         vm.stopPrank();
         
         // Verify the transfer happened
@@ -303,10 +321,15 @@ contract SecurityTokenTest is Test {
     }
     
     function test_ForceTransfer_RevertIfNoReason() public {
+        // First mint tokens
+        vm.startPrank(controller);
+        token.mintByPartition(REG_D, user1, 1000 * 10**18, "");
+        vm.stopPrank();
+        
         vm.startPrank(controller);
         
-        vm.expectRevert("SecurityToken: reason required");
-        token.forceTransfer(REG_D, user1, user2, 100 * 10**18, "");
+        vm.expectRevert("SecurityToken: reasonCode required");
+        token.forceTransfer(REG_D, user1, user2, 100 * 10**18, bytes32(0), "");
         
         vm.stopPrank();
     }
@@ -328,7 +351,7 @@ contract SecurityTokenTest is Test {
     function test_SetRegistry_RevertIfNotOwner() public {
         vm.startPrank(user1);
         
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1));
         token.setRegistry(makeAddr("newRegistry"));
         
         vm.stopPrank();
@@ -352,7 +375,7 @@ contract SecurityTokenTest is Test {
     function test_SetController_RevertIfNotOwner() public {
         vm.startPrank(user1);
         
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1));
         token.setController(makeAddr("newController"));
         
         vm.stopPrank();
@@ -409,7 +432,7 @@ contract SecurityTokenTest is Test {
     }
     
     function testFuzz_MintAndTransfer(uint256 amount) public {
-        vm.assume(amount > 0 && amount <= 1000000 * 10**18); // Reasonable bounds
+        vm.assume(amount > 1 && amount <= 1000000 * 10**18); // Reasonable bounds, minimum 2 to ensure transfer amount > 0
         
         vm.startPrank(controller);
         token.mintByPartition(REG_D, user1, amount, "");

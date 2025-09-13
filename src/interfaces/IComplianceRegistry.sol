@@ -17,6 +17,7 @@ interface IComplianceRegistry {
      */
     struct Claims {
         bytes2 countryCode;
+        bool usTaxResident;
         bool accredited;
         uint64 lockupUntil;
         bool revoked;
@@ -57,12 +58,24 @@ interface IComplianceRegistry {
      * @param partition The token partition (REG_D or REG_S)
      * @param amount The transfer amount
      * @return ok Whether the transfer is allowed
-     * @return reason The reason for the decision
+     * @return reasonCode Machine-readable reason code (ERR_*)
+     * @return lockupUntil Lockup timestamp if blocked due to lockup
      */
     function isTransferAllowed(
         address from,
         address to,
         bytes32 partition,
         uint256 amount
-    ) external view returns (bool ok, string memory reason);
+    ) external view returns (bool ok, bytes32 reasonCode, uint64 lockupUntil);
+
+    /**
+     * @dev Returns whether global compliance is paused
+     */
+    function globalCompliancePaused() external view returns (bool);
+
+    /**
+     * @dev Returns whether a wallet is frozen
+     * @param wallet The wallet address
+     */
+    function isFrozen(address wallet) external view returns (bool);
 }

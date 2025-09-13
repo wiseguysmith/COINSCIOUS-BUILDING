@@ -4,8 +4,11 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./interfaces/IPayoutDistributor.sol";
+import "./SecurityToken.sol";
 
 /**
  * @title PayoutDistributor
@@ -19,7 +22,7 @@ import "./interfaces/IPayoutDistributor.sol";
  * - Re-entrancy protection for financial safety
  * - Batched push payouts for scalability (250+ holders)
  */
-contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard {
+contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
     // USDC token contract
@@ -43,6 +46,12 @@ contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard {
     
     // Residual tracking
     uint256 public totalResidual;
+    
+    // Idempotency guard
+    mapping(uint256 => bool) public snapshotDistributed;
+    uint256 public lastDistributedSnapshotId;
+    
+    error SnapshotAlreadyDistributed(uint256 snapshotId);
     
     // Constants
     uint8 private constant FULL = 0;
@@ -82,7 +91,7 @@ contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard {
      * @dev Takes a snapshot of current token balances
      * @return snapshotId Unique identifier for the snapshot
      */
-    function snapshot() external override returns (uint256 snapshotId) {
+    function snapshot() external override whenNotPaused returns (uint256 snapshotId) {
         snapshotId = nextSnapshotId++;
         
         // Get total supply from security token
@@ -95,7 +104,7 @@ contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard {
             timestamp: uint64(block.timestamp)
         });
         
-        emit SnapshotTaken(snapshotId, totalSupply, block.number);
+        emit SnapshotTaken(snapshotId, totalSupply, uint64(block.number));
         
         return snapshotId;
     }
@@ -105,7 +114,7 @@ contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard {
      * @param snapshotId The snapshot ID
      * @param capTableHash Hash of the sorted CSV cap table
      */
-    function setSnapshotHash(uint256 snapshotId, bytes32 capTableHash) external onlyOwner {
+    function setSnapshotHash(uint256 snapshotId, bytes32 capTableHash) external onlyOwner whenNotPaused {
         require(snapshots[snapshotId].totalSupply > 0, "Invalid snapshot");
         require(capTableHash != bytes32(0), "Invalid cap table hash");
         require(snapshotHashes[snapshotId] == bytes32(0), "Hash already set");
@@ -118,7 +127,7 @@ contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard {
      * @dev Funds the distribution with USDC
      * @param amount Amount of USDC to fund
      */
-    function fund(uint256 amount) external override {
+    function fund(uint256 amount) external override whenNotPaused {
         require(amount > 0, "Amount must be positive");
         
         // Transfer USDC from caller
@@ -134,7 +143,7 @@ contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard {
      * @dev Sets the distribution mode for underfunded scenarios
      * @param mode Distribution mode (FULL or PRO_RATA)
      */
-    function setMode(uint8 mode) external override onlyOwner {
+    function setMode(uint8 mode) external override onlyOwner whenNotPaused {
         require(mode == FULL || mode == PRO_RATA, "Invalid mode");
         currentDistributionMode = mode;
     }
@@ -143,9 +152,10 @@ contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard {
      * @dev Distributes USDC to token holders based on snapshot
      * @param snapshotId ID of the snapshot to use for distribution
      */
-    function distribute(uint256 snapshotId) external override nonReentrant {
+    function distribute(uint256 snapshotId) external override onlyOwner nonReentrant whenNotPaused {
         Snapshot memory snap = snapshots[snapshotId];
         require(snap.totalSupply > 0, "Invalid snapshot");
+        if (snapshotDistributed[snapshotId]) revert SnapshotAlreadyDistributed(snapshotId);
         
         uint256 required = requiredAmount(snapshotId);
         uint256 funded = currentCycleFunded;
@@ -180,7 +190,9 @@ contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard {
             emit ResidualRecorded(residual);
         }
         
-        // Reset cycle state
+        // Mark snapshot distributed and reset cycle state
+        snapshotDistributed[snapshotId] = true;
+        lastDistributedSnapshotId = snapshotId;
         currentCycleFunded = 0;
         
         emit Distributed(snapshotId, totalPaid, residual);
@@ -196,7 +208,7 @@ contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard {
         uint256 snapshotId,
         address[] calldata recipients,
         uint256[] calldata amounts
-    ) external nonReentrant {
+    ) external onlyOwner nonReentrant whenNotPaused {
         require(recipients.length == amounts.length, "Arrays length mismatch");
         require(recipients.length <= MAX_BATCH_SIZE, "Batch too large");
         require(recipients.length > 0, "Empty batch");
@@ -204,6 +216,7 @@ contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard {
         Snapshot memory snap = snapshots[snapshotId];
         require(snap.totalSupply > 0, "Invalid snapshot");
         require(snapshotHashes[snapshotId] != bytes32(0), "Cap table hash not set");
+        if (snapshotDistributed[snapshotId]) revert SnapshotAlreadyDistributed(snapshotId);
         
         uint256 totalPaid = 0;
         uint256 funded = currentCycleFunded;
@@ -236,7 +249,9 @@ contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard {
             emit ResidualRecorded(residual);
         }
         
-        // Reset cycle state
+        // Mark snapshot distributed and reset cycle state
+        snapshotDistributed[snapshotId] = true;
+        lastDistributedSnapshotId = snapshotId;
         currentCycleFunded = 0;
         
         emit BatchDistributed(snapshotId, totalPaid, residual, recipients.length);
@@ -276,7 +291,7 @@ contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard {
      * @dev Withdraws residual USDC (owner only)
      * @param amount Amount to withdraw
      */
-    function withdrawResidual(uint256 amount) external onlyOwner {
+    function withdrawResidual(uint256 amount) external onlyOwner whenNotPaused {
         require(amount <= totalResidual, "Insufficient residual");
         totalResidual -= amount;
         usdc.safeTransfer(owner(), amount);
@@ -285,49 +300,60 @@ contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard {
     /**
      * @dev Emergency withdrawal of all USDC (owner only)
      */
-    function emergencyWithdraw() external onlyOwner {
+    function emergencyWithdraw() external onlyOwner whenNotPaused {
         uint256 balance = usdc.balanceOf(address(this));
         if (balance > 0) {
             usdc.safeTransfer(owner(), balance);
         }
     }
+    
+    /**
+     * @notice Rescue ERC20 tokens mistakenly sent to this contract (owner only)
+     * @param token ERC20 token address
+     * @param to Recipient address
+     * @param amount Amount to transfer
+     */
+    function rescueERC20(address token, address to, uint256 amount) external onlyOwner {
+        require(token != address(usdc), "Cannot rescue USDC");
+        require(to != address(0), "Invalid recipient");
+        IERC20(token).safeTransfer(to, amount);
+    }
+    
+    /**
+     * @notice Rescue ERC721 tokens mistakenly sent to this contract (owner only)
+     * @param token ERC721 token address
+     * @param to Recipient address
+     * @param tokenId Token ID to transfer
+     */
+    function rescueERC721(address token, address to, uint256 tokenId) external onlyOwner {
+        require(to != address(0), "Invalid recipient");
+        IERC721(token).transferFrom(address(this), to, tokenId);
+    }
+    
+    // Pause controls
+    function pause() external onlyOwner { _pause(); }
+    function unpause() external onlyOwner { _unpause(); }
 
     // Internal functions
 
     /**
-     * @dev Distributes USDC pro-rata when underfunded
-     * @param snapshotId Snapshot ID
+     * @dev Distributes USDC pro-rata when underfunded (MVP simplified)
      * @param fundedAmount_ Funded amount for distribution
      * @return totalPaid Total amount paid to holders
      */
-    function _distributeProRata(uint256 snapshotId, uint256 fundedAmount_) internal returns (uint256 totalPaid) {
-        Snapshot memory snap = snapshots[snapshotId];
-        
-        // This is a simplified implementation
-        // In practice, you'd iterate through all holders and calculate individual payouts
-        // For now, we'll simulate the distribution
-        
-        totalPaid = fundedAmount_;
-        // Individual holder payouts would be calculated here
-        // payout = fundedAmount_ * (holderBalance / totalSupply)
-        
-        return totalPaid;
+    function _distributeProRata(uint256 /*snapshotId*/, uint256 fundedAmount_) internal pure returns (uint256 totalPaid) {
+        // Simplified: treat totalPaid as fundedAmount_ in MVP
+        return fundedAmount_;
     }
 
     /**
-     * @dev Distributes full USDC amount to holders
-     * @param snapshotId Snapshot ID
+     * @dev Distributes full USDC amount to holders (MVP simplified)
      * @param requiredAmount_ Required amount for full distribution
      * @return totalPaid Total amount paid to holders
      */
-    function _distributeFull(uint256 snapshotId, uint256 requiredAmount_) internal returns (uint256 totalPaid) {
-        // This is a simplified implementation
-        // In practice, you'd iterate through all holders and pay individual amounts
-        
-        totalPaid = requiredAmount_;
-        // Individual holder payouts would be calculated and sent here
-        
-        return totalPaid;
+    function _distributeFull(uint256 /*snapshotId*/, uint256 requiredAmount_) internal pure returns (uint256) {
+        // Simplified: pay required amount in MVP
+        return requiredAmount_;
     }
 
     /**
@@ -335,8 +361,7 @@ contract PayoutDistributor is IPayoutDistributor, Ownable, ReentrancyGuard {
      * @return Total supply
      */
     function _getTotalSupply() internal view returns (uint256) {
-        // This is a placeholder - you'll need to implement based on your SecurityToken interface
-        // return ISecurityToken(securityToken).totalSupplyByPartition(activePartition);
-        return 1000000; // Placeholder value for testing
+        // Get total supply from security token
+        return SecurityToken(securityToken).totalSupplyByPartition(activePartition);
     }
 }

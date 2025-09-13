@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {LogAnchor} from "../src/LogAnchor.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract LogAnchorTest is Test {
     LogAnchor public logAnchor;
@@ -63,7 +64,7 @@ contract LogAnchorTest is Test {
     function test_CommitLogRoot_RevertIfNotOwner() public {
         vm.startPrank(user);
         
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
         logAnchor.commitLogRoot(TEST_DAY, TEST_ROOT);
         
         vm.stopPrank();
@@ -206,7 +207,9 @@ contract LogAnchorTest is Test {
     }
     
     function testFuzz_CommitValidDays(uint256 day) public {
-        vm.assume(day >= 20240101 && day <= 20991231);
+        // Generate a valid day in the range 20240101 to 20991231
+        // Use modulo to ensure we stay within bounds
+        day = 20240101 + (day % (20991231 - 20240101 + 1));
         
         vm.startPrank(owner);
         

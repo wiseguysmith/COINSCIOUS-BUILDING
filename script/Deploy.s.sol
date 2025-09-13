@@ -59,7 +59,8 @@ contract Deploy is Script {
         
         // Step 3: Deploy SecurityToken implementation
         console.log("\nStep 3: Deploying SecurityToken implementation...");
-        securityTokenImpl = new SecurityToken(
+        securityTokenImpl = new SecurityToken();
+        securityTokenImpl.initialize(
             "COINSCIOUS Security Token", // name
             "COIN",                     // symbol
             gnosisSafe,                 // owner (Gnosis Safe)

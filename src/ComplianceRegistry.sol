@@ -17,19 +17,70 @@ contract ComplianceRegistry is OracleRole, IComplianceRegistry {
     mapping(address => bool) public isWhitelisted;
     mapping(address => bool) public isRevoked;
     
-    // Events (must match interface exactly)
-    event ClaimsSet(address indexed wallet, Claims claims);
-    event WalletRevoked(address indexed wallet);
-    event WalletWhitelisted(address indexed wallet);
+    // Global compliance controls
+    bool public globalCompliancePaused;
+    mapping(address => bool) public frozen;
     
-    // Constants for reason codes
-    string public constant REASON_OK = "OK";
-    string public constant REASON_NOT_WHITELISTED = "WALLET_NOT_WHITELISTED";
-    string public constant REASON_REVOKED = "WALLET_REVOKED_SANCTIONS";
-    string public constant REASON_EXPIRED = "CLAIMS_EXPIRED_REVERIFY";
-    string public constant REASON_LOCKUP_ACTIVE = "LOCKUP_ACTIVE_UNTIL_";
-    string public constant REASON_NOT_ACCREDITED = "DESTINATION_NOT_ACCREDITED_REG_D";
-    string public constant REASON_US_PERSON_RESTRICTED = "REG_S_RESTRICTED_US_PERSON";
+    // Events are defined in the interface; do not redeclare here
+    
+    // Constants for reason codes (bytes32)
+    bytes32 public constant ERR_OK = keccak256("ERR_OK");
+    bytes32 public constant ERR_NOT_WHITELISTED = keccak256("ERR_NOT_WHITELISTED");
+    bytes32 public constant ERR_REVOKED = keccak256("ERR_REVOKED");
+    bytes32 public constant ERR_CLAIMS_EXPIRED = keccak256("ERR_CLAIMS_EXPIRED");
+    bytes32 public constant ERR_LOCKUP_ACTIVE = keccak256("ERR_LOCKUP_ACTIVE");
+    bytes32 public constant ERR_DESTINATION_NOT_ACCREDITED_REG_D = keccak256("ERR_DESTINATION_NOT_ACCREDITED_REG_D");
+    bytes32 public constant ERR_SOURCE_NOT_ACCREDITED_REG_D = keccak256("ERR_SOURCE_NOT_ACCREDITED_REG_D");
+    bytes32 public constant ERR_REG_S_US_PERSON_RESTRICTED = keccak256("ERR_REG_S_US_PERSON_RESTRICTED");
+    bytes32 public constant ERR_UNKNOWN_PARTITION = keccak256("ERR_UNKNOWN_PARTITION");
+    bytes32 public constant ERR_PARTITION_CROSS_NOT_ALLOWED = keccak256("ERR_PARTITION_CROSS_NOT_ALLOWED");
+    bytes32 public constant ERR_PAUSED = keccak256("ERR_PAUSED");
+    bytes32 public constant ERR_INTERNAL_POLICY = keccak256("ERR_INTERNAL_POLICY");
+    bytes32 public constant ERR_COMPLIANCE_PAUSED = keccak256("ERR_COMPLIANCE_PAUSED");
+    bytes32 public constant ERR_FROZEN = keccak256("ERR_FROZEN");
+
+    // New events for defense-in-depth controls
+    event GlobalCompliancePausedSet(bool paused);
+    event AccountFrozen(address indexed wallet);
+    event AccountUnfrozen(address indexed wallet);
+
+    /**
+     * @notice Pause or unpause global compliance (admin/timelock only)
+     * @param paused New paused state
+     */
+    function setGlobalCompliancePaused(bool paused) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        globalCompliancePaused = paused;
+        emit GlobalCompliancePausedSet(paused);
+    }
+
+    /**
+     * @notice Freeze an account, blocking compliance operations (admin/timelock only)
+     * @param wallet Wallet to freeze
+     */
+    function freeze(address wallet) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(wallet != address(0), "ComplianceRegistry: wallet cannot be zero");
+        frozen[wallet] = true;
+        emit AccountFrozen(wallet);
+    }
+
+    /**
+     * @notice Unfreeze an account (admin/timelock only)
+     * @param wallet Wallet to unfreeze
+     */
+    function unfreeze(address wallet) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(wallet != address(0), "ComplianceRegistry: wallet cannot be zero");
+        frozen[wallet] = false;
+        emit AccountUnfrozen(wallet);
+    }
+
+    /**
+     * @notice Check if an account is frozen
+     * @param wallet Wallet address to check
+     * @return True if frozen
+     */
+    function isFrozen(address wallet) external view returns (bool) {
+        return frozen[wallet];
+    }
     
     /**
      * @notice Set compliance claims for a wallet
@@ -52,6 +103,7 @@ contract ComplianceRegistry is OracleRole, IComplianceRegistry {
         
         claims[wallet] = newClaims;
         isWhitelisted[wallet] = true;
+        isRevoked[wallet] = false; // Unrevoke when new claims are set
         
         emit ClaimsSet(wallet, newClaims);
     }
@@ -112,49 +164,64 @@ contract ComplianceRegistry is OracleRole, IComplianceRegistry {
      * @param partition Target partition
      * @param amount Transfer amount
      * @return ok True if transfer allowed
-     * @return reason Reason for decision
+     * @return reasonCode Machine-readable reason code (ERR_*)
+     * @return lockupUntil Lockup timestamp if blocked due to lockup
      */
     function isTransferAllowed(
         address from,
         address to,
         bytes32 partition,
         uint256 amount
-    ) external view override returns (bool ok, string memory reason) {
+    ) external view override returns (bool ok, bytes32 reasonCode, uint64 lockupUntil) {
+        // Global compliance pause
+        if (globalCompliancePaused) {
+            return (false, ERR_COMPLIANCE_PAUSED, 0);
+        }
+
+        // Frozen account checks
+        if (from != address(0) && frozen[from]) {
+            return (false, ERR_FROZEN, 0);
+        }
+        if (frozen[to]) {
+            return (false, ERR_FROZEN, 0);
+        }
         // Skip validation for minting (from == address(0))
         if (from != address(0)) {
             // Check source wallet compliance
             if (!_isWalletCompliant(from)) {
-                return (false, REASON_NOT_WHITELISTED);
+                return (false, ERR_NOT_WHITELISTED, 0);
             }
         }
         
         // Check destination wallet compliance
         if (!_isWalletCompliant(to)) {
-            return (false, REASON_NOT_WHITELISTED);
+            return (false, ERR_NOT_WHITELISTED, 0);
         }
         
         // Check lockup periods
         if (from != address(0)) {
-            string memory lockupReason = _checkLockupRestriction(from, partition);
-            if (bytes(lockupReason).length > 0) {
-                return (false, lockupReason);
+            uint64 lockTs = _lockupUntil(from);
+            if (lockTs > 0 && lockTs > block.timestamp) {
+                return (false, ERR_LOCKUP_ACTIVE, lockTs);
             }
         }
         
         // Check partition-specific rules
         if (partition == keccak256("REG_D")) {
-            string memory regDReason = _checkRegDRestrictions(to);
-            if (bytes(regDReason).length > 0) {
-                return (false, regDReason);
+            bytes32 regDReason = _checkRegDRestrictions(from, to);
+            if (regDReason != bytes32(0)) {
+                return (false, regDReason, 0);
             }
         } else if (partition == keccak256("REG_S")) {
-            string memory regSReason = _checkRegSRestrictions(to);
-            if (bytes(regSReason).length > 0) {
-                return (false, regSReason);
+            bytes32 regSReason = _checkRegSRestrictions(from, to);
+            if (regSReason != bytes32(0)) {
+                return (false, regSReason, 0);
             }
+        } else {
+            return (false, ERR_UNKNOWN_PARTITION, 0);
         }
         
-        return (true, REASON_OK);
+        return (true, ERR_OK, 0);
     }
     
     /**
@@ -173,6 +240,7 @@ contract ComplianceRegistry is OracleRole, IComplianceRegistry {
      */
     function _isWalletCompliant(address wallet) internal view returns (bool) {
         if (wallet == address(0)) return false;
+        if (frozen[wallet]) return false;
         if (isRevoked[wallet]) return false;
         if (!isWhitelisted[wallet]) return false;
         
@@ -187,27 +255,14 @@ contract ComplianceRegistry is OracleRole, IComplianceRegistry {
     /**
      * @notice Check lockup restrictions
      * @param wallet Wallet address
-     * @param partition Target partition
-     * @return Reason string if locked, empty if allowed
+     * @return lockTimestamp Lockup timestamp if active, 0 if not locked
      */
-    function _checkLockupRestriction(address wallet, bytes32 partition) internal view returns (string memory) {
+    function _lockupUntil(address wallet) internal view returns (uint64) {
         Claims memory walletClaims = claims[wallet];
-        
-        if (walletClaims.lockupUntil > 0 && walletClaims.lockupUntil > block.timestamp) {
-            // Format date as YYYY-MM-DD
-            uint256 year = walletClaims.lockupUntil / 365 days + 1970;
-            uint256 month = (walletClaims.lockupUntil % 365 days) / 30 days + 1;
-            uint256 day = (walletClaims.lockupUntil % 30 days) + 1;
-            
-            return string(abi.encodePacked(
-                REASON_LOCKUP_ACTIVE,
-                _uintToString(year), "-",
-                _uintToString(month), "-",
-                _uintToString(day)
-            ));
+        if (walletClaims.lockupUntil > block.timestamp) {
+            return walletClaims.lockupUntil;
         }
-        
-        return "";
+        return 0;
     }
     
     /**
@@ -215,36 +270,40 @@ contract ComplianceRegistry is OracleRole, IComplianceRegistry {
      * @param to Destination address
      * @return Reason string if restricted, empty if allowed
      */
-    function _checkRegDRestrictions(address to) internal view returns (string memory) {
+    function _checkRegDRestrictions(address from, address to) internal view returns (bytes32) {
         Claims memory toClaims = claims[to];
-        
         if (!toClaims.accredited) {
-            return REASON_NOT_ACCREDITED;
+            return ERR_DESTINATION_NOT_ACCREDITED_REG_D;
         }
-        
-        return "";
+        Claims memory fromClaims = claims[from];
+        if (from != address(0) && !fromClaims.accredited) {
+            return ERR_SOURCE_NOT_ACCREDITED_REG_D;
+        }
+        return bytes32(0);
     }
     
     /**
      * @notice Check REG_S restrictions
+     * @param from Source address
      * @param to Destination address
      * @return Reason string if restricted, empty if allowed
      */
-    function _checkRegSRestrictions(address to) internal view returns (string memory) {
+    function _checkRegSRestrictions(address from, address to) internal view returns (bytes32) {
         Claims memory toClaims = claims[to];
+        Claims memory fromClaims = claims[from];
         
-        // Check if destination is US person (simplified check)
-        if (toClaims.countryCode == bytes2("US")) {
-            // For pilot: assume 6-month restriction period
-            // In production: this would be configurable per property
-            uint256 restrictionEnd = toClaims.lockupUntil + 6 * 30 days;
-            
-            if (block.timestamp < restrictionEnd) {
-                return REASON_US_PERSON_RESTRICTED;
+        bool isToUSPerson = (toClaims.countryCode == bytes2("US")) || toClaims.usTaxResident;
+        bool isFromUSPerson = (fromClaims.countryCode == bytes2("US")) || fromClaims.usTaxResident;
+        
+        // Only apply REG_S restrictions to actual transfers (not minting)
+        if (from != address(0)) {
+            // Block transfers TO US persons (REG_S is for non-US persons only)
+            if (isToUSPerson) {
+                return ERR_REG_S_US_PERSON_RESTRICTED;
             }
         }
         
-        return "";
+        return bytes32(0);
     }
     
     /**

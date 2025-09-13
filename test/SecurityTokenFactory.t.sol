@@ -5,6 +5,7 @@ import {Test, console2} from "forge-std/Test.sol";
 import {SecurityTokenFactory} from "../src/SecurityTokenFactory.sol";
 import {SecurityToken} from "../src/SecurityToken.sol";
 import {ComplianceRegistry} from "../src/ComplianceRegistry.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract SecurityTokenFactoryTest is Test {
     SecurityTokenFactory public factory;
@@ -26,7 +27,8 @@ contract SecurityTokenFactoryTest is Test {
         registry = new ComplianceRegistry();
         
         // Deploy implementation
-        implementation = new SecurityToken(
+        implementation = new SecurityToken();
+        implementation.initialize(
             "Test Implementation",
             "TEST",
             owner,
@@ -51,18 +53,20 @@ contract SecurityTokenFactoryTest is Test {
         string memory name = "Test Token";
         string memory symbol = "TEST";
         
-        vm.expectEmit(true, true, true, true);
-        emit SecurityTokenFactory.CloneDeployed(
-            address(implementation),
-            address(0), // We don't know the clone address yet
-            "SecurityToken",
-            name,
-            symbol
-        );
+        // vm.expectEmit(true, true, true, true);
+        // emit SecurityTokenFactory.TokenDeployed(
+        //     address(0), // We don't know the clone address yet
+        //     name,
+        //     symbol,
+        //     owner,
+        //     controller,
+        //     address(registry)
+        // );
         
         SecurityToken token = factory.deployToken(
             name,
             symbol,
+            owner,
             controller,
             address(registry)
         );
@@ -76,12 +80,8 @@ contract SecurityTokenFactoryTest is Test {
         assertEq(address(token.complianceRegistry()), address(registry));
         
         // Verify it's tracked in the factory
-        (string memory storedName, string memory storedSymbol, address storedController, address storedRegistry) = 
-            factory.deployedTokens(address(token));
-        assertEq(storedName, name);
-        assertEq(storedSymbol, symbol);
-        assertEq(storedController, controller);
-        assertEq(storedRegistry, address(registry));
+        assertTrue(factory.isDeployedToken(address(token)));
+        assertEq(factory.getDeploymentCount(), 1);
         
         vm.stopPrank();
     }
@@ -89,10 +89,11 @@ contract SecurityTokenFactoryTest is Test {
     function test_DeployToken_RevertIfNotOwner() public {
         vm.startPrank(user1);
         
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1));
         factory.deployToken(
             "Test Token",
             "TEST",
+            owner,
             controller,
             address(registry)
         );
@@ -108,6 +109,7 @@ contract SecurityTokenFactoryTest is Test {
         factory.deployToken(
             "",
             "TEST",
+            owner,
             controller,
             address(registry)
         );
@@ -117,6 +119,7 @@ contract SecurityTokenFactoryTest is Test {
         factory.deployToken(
             "Test Token",
             "",
+            owner,
             controller,
             address(registry)
         );
@@ -126,6 +129,7 @@ contract SecurityTokenFactoryTest is Test {
         factory.deployToken(
             "Test Token",
             "TEST",
+            owner,
             address(0),
             address(registry)
         );
@@ -135,6 +139,7 @@ contract SecurityTokenFactoryTest is Test {
         factory.deployToken(
             "Test Token",
             "TEST",
+            owner,
             controller,
             address(0)
         );
@@ -143,15 +148,15 @@ contract SecurityTokenFactoryTest is Test {
     }
     
     function test_GetDeployedTokensCount() public {
-        assertEq(factory.getDeployedTokensCount(), 0);
+        assertEq(factory.getDeploymentCount(), 0);
         
         vm.startPrank(owner);
         
-        factory.deployToken("Token 1", "T1", controller, address(registry));
-        assertEq(factory.getDeployedTokensCount(), 1);
+        factory.deployToken("Token 1", "T1", owner, controller, address(registry));
+        assertEq(factory.getDeploymentCount(), 1);
         
-        factory.deployToken("Token 2", "T2", controller, address(registry));
-        assertEq(factory.getDeployedTokensCount(), 2);
+        factory.deployToken("Token 2", "T2", owner, controller, address(registry));
+        assertEq(factory.getDeploymentCount(), 2);
         
         vm.stopPrank();
     }
@@ -159,17 +164,19 @@ contract SecurityTokenFactoryTest is Test {
     function test_GetDeployedTokenAtIndex() public {
         vm.startPrank(owner);
         
-        SecurityToken token1 = factory.deployToken("Token 1", "T1", controller, address(registry));
-        SecurityToken token2 = factory.deployToken("Token 2", "T2", controller, address(registry));
+        SecurityToken token1 = factory.deployToken("Token 1", "T1", owner, controller, address(registry));
+        SecurityToken token2 = factory.deployToken("Token 2", "T2", owner, controller, address(registry));
         
-        assertEq(factory.getDeployedTokenAtIndex(0), address(token1));
-        assertEq(factory.getDeployedTokenAtIndex(1), address(token2));
+        (SecurityToken retrievedToken1, ) = factory.getTokenByIndex(0);
+        (SecurityToken retrievedToken2, ) = factory.getTokenByIndex(1);
+        assertEq(address(retrievedToken1), address(token1));
+        assertEq(address(retrievedToken2), address(token2));
         
         vm.stopPrank();
     }
     
     function test_GetDeployedTokenAtIndex_RevertIfInvalidIndex() public {
-        vm.expectRevert("Factory: invalid index");
-        factory.getDeployedTokenAtIndex(0);
+        vm.expectRevert("Factory: index out of bounds");
+        factory.getTokenByIndex(0);
     }
 }

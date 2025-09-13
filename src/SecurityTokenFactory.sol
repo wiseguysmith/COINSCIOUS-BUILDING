@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./SecurityToken.sol";
 
 /**
@@ -69,17 +70,14 @@ contract SecurityTokenFactory is Ownable {
         require(controller != address(0), "Factory: controller cannot be zero");
         require(registry != address(0), "Factory: registry cannot be zero");
         
-        // Deploy minimal proxy
-        bytes memory bytecode = _getBytecode(name, symbol, owner, controller, registry);
-        address tokenAddress;
-        
-        assembly {
-            tokenAddress := create(0, add(bytecode, 0x20), mload(bytecode))
-        }
-        
+        // Deploy minimal proxy using OpenZeppelin Clones
+        address tokenAddress = Clones.clone(address(implementation));
         require(tokenAddress != address(0), "Factory: deployment failed");
         
         token = SecurityToken(tokenAddress);
+        
+        // Initialize the token
+        token.initialize(name, symbol, owner, controller, registry);
         
         // Store deployment info
         tokenInfo[tokenAddress] = TokenInfo({
@@ -96,35 +94,6 @@ contract SecurityTokenFactory is Ownable {
         emit TokenDeployed(tokenAddress, name, symbol, owner, controller, registry);
     }
     
-    /**
-     * @notice Get bytecode for minimal proxy deployment
-     * @param name Token name
-     * @param symbol Token symbol
-     * @param owner Token owner
-     * @param controller Controller address
-     * @param registry Compliance registry
-     * @return bytecode Deployment bytecode
-     */
-    function _getBytecode(
-        string memory name,
-        string memory symbol,
-        address owner,
-        address controller,
-        address registry
-    ) internal view returns (bytes memory bytecode) {
-        // EIP-1167 minimal proxy bytecode
-        bytes memory proxyBytecode = abi.encodePacked(
-            hex"3d602d80600a3d3981f3363d3d373d3d3d363d73",
-            address(implementation),
-            hex"5af43d82803e903d91602b57fd5bf3"
-        );
-        
-        // Encode constructor parameters
-        bytes memory constructorArgs = abi.encode(name, symbol, owner, controller, registry);
-        
-        // Combine proxy bytecode with constructor args
-        bytecode = abi.encodePacked(proxyBytecode, constructorArgs);
-    }
     
     /**
      * @notice Get all deployed tokens

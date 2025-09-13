@@ -44,9 +44,12 @@ contract MockSecurityToken {
     
     function setBalance(address holder, uint256 amount) external {
         balances[holder] = amount;
-        totalSupply = 0;
-        // Recalculate total supply (simplified)
-        totalSupply += amount;
+        // Recalculate total supply by summing all known balances
+        // For testing, we'll manually set this in the test
+    }
+    
+    function setTotalSupply(uint256 _totalSupply) external {
+        totalSupply = _totalSupply;
     }
     
     function balanceOfByPartition(bytes32 partition, address holder) external view returns (uint256) {
@@ -96,6 +99,7 @@ contract PayoutDistributorTest is Test {
         securityToken.setBalance(user1, 500000); // 50%
         securityToken.setBalance(user2, 300000); // 30%
         securityToken.setBalance(user3, 200000); // 20%
+        securityToken.setTotalSupply(1000000); // Total supply
         
         // Mint USDC to users for funding
         usdc.mint(user1, 1000000);
@@ -242,8 +246,9 @@ contract PayoutDistributorTest is Test {
         // For now, we'll just verify the modifier is present
         
         uint256 snapshotId = distributor.snapshot();
-        usdc.approve(address(distributor), 100000);
-        distributor.fund(100000);
+        uint256 totalSupply = securityToken.totalSupply();
+        usdc.approve(address(distributor), totalSupply);
+        distributor.fund(totalSupply);
         
         // This should not cause re-entrancy issues
         distributor.distribute(snapshotId);
@@ -285,6 +290,10 @@ contract PayoutDistributorTest is Test {
         securityToken.setBalance(user1, user1Balance);
         securityToken.setBalance(user2, user2Balance);
         securityToken.setBalance(user3, user3Balance);
+        
+        // Set total supply to match the sum of balances
+        uint256 expectedTotalSupply = user1Balance + user2Balance + user3Balance;
+        securityToken.setTotalSupply(expectedTotalSupply);
         
         // Take snapshot
         uint256 snapshotId = distributor.snapshot();
