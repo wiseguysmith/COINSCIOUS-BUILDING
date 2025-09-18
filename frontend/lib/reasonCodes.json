@@ -1,0 +1,103 @@
+{
+  "0x0000000000000000000000000000000000000000000000000000000000000000": {
+    "code": "ERR_OK",
+    "title": "Success",
+    "explain": "Operation completed successfully."
+  },
+  "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef": {
+    "code": "ERR_NOT_WHITELISTED",
+    "title": "Wallet Not Whitelisted",
+    "explain": "This wallet is not registered in the compliance system."
+  },
+  "0x2345678901bcdef1234567890abcdef1234567890abcdef1234567890abcdef12": {
+    "code": "ERR_REVOKED",
+    "title": "Wallet Revoked",
+    "explain": "This wallet has been permanently revoked from the system."
+  },
+  "0x3456789012cdef1234567890abcdef1234567890abcdef1234567890abcdef1234": {
+    "code": "ERR_CLAIMS_EXPIRED",
+    "title": "Claims Expired",
+    "explain": "The compliance claims for this wallet have expired."
+  },
+  "0x4567890123def1234567890abcdef1234567890abcdef1234567890abcdef12345": {
+    "code": "ERR_LOCKUP_ACTIVE",
+    "title": "Lockup Period Active",
+    "explain": "This wallet is in a lockup period and cannot transfer tokens."
+  },
+  "0x5678901234ef1234567890abcdef1234567890abcdef1234567890abcdef123456": {
+    "code": "ERR_DESTINATION_NOT_ACCREDITED_REG_D",
+    "title": "Destination Not Accredited",
+    "explain": "The destination wallet is not accredited for REG_D transfers."
+  },
+  "0x6789012345f1234567890abcdef1234567890abcdef1234567890abcdef1234567": {
+    "code": "ERR_SOURCE_NOT_ACCREDITED_REG_D",
+    "title": "Source Not Accredited",
+    "explain": "The source wallet is not accredited for REG_D transfers."
+  },
+  "0x78901234561234567890abcdef1234567890abcdef1234567890abcdef12345678": {
+    "code": "ERR_REG_S_US_PERSON_RESTRICTED",
+    "title": "REG_S US Person Restricted",
+    "explain": "REG_S tokens cannot be transferred to US persons."
+  },
+  "0x8901234567234567890abcdef1234567890abcdef1234567890abcdef123456789": {
+    "code": "ERR_UNKNOWN_PARTITION",
+    "title": "Unknown Partition",
+    "explain": "The specified partition is not recognized."
+  },
+  "0x901234567834567890abcdef1234567890abcdef1234567890abcdef1234567890": {
+    "code": "ERR_PARTITION_CROSS_NOT_ALLOWED",
+    "title": "Partition Cross Not Allowed",
+    "explain": "Cross-partition transfers are not permitted."
+  },
+  "0x01234567894567890abcdef1234567890abcdef1234567890abcdef12345678901": {
+    "code": "ERR_PAUSED",
+    "title": "System Paused",
+    "explain": "The system is currently paused and operations are restricted."
+  },
+  "0x1234567890567890abcdef1234567890abcdef1234567890abcdef123456789012": {
+    "code": "ERR_FROZEN",
+    "title": "Account Frozen",
+    "explain": "This wallet is temporarily blocked by compliance."
+  },
+  "0x234567890167890abcdef1234567890abcdef1234567890abcdef1234567890123": {
+    "code": "ERR_INSUFFICIENT_BALANCE",
+    "title": "Insufficient Balance",
+    "explain": "The wallet does not have enough tokens for this operation."
+  },
+  "0x34567890127890abcdef1234567890abcdef1234567890abcdef12345678901234": {
+    "code": "ERR_AMOUNT_MUST_BE_POSITIVE",
+    "title": "Amount Must Be Positive",
+    "explain": "The transfer amount must be greater than zero."
+  },
+  "0x4567890123890abcdef1234567890abcdef1234567890abcdef123456789012345": {
+    "code": "ERR_REASON_CODE_REQUIRED",
+    "title": "Reason Code Required",
+    "explain": "A reason code is required for this operation."
+  },
+  "0x567890123490abcdef1234567890abcdef1234567890abcdef1234567890123456": {
+    "code": "ERR_UNDERFUNDED_FULL_MODE",
+    "title": "Underfunded Full Mode",
+    "explain": "Insufficient USDC funding for full distribution mode."
+  },
+  "0x6789012345abcdef1234567890abcdef1234567890abcdef12345678901234567": {
+    "code": "ERR_INVALID_SNAPSHOT",
+    "title": "Invalid Snapshot",
+    "explain": "The specified snapshot ID is invalid or not found."
+  },
+  "0x7890123456bcdef1234567890abcdef1234567890abcdef123456789012345678": {
+    "code": "ERR_ALREADY_DISTRIBUTED",
+    "title": "Already Distributed",
+    "explain": "This snapshot has already been distributed."
+  },
+  "0x8901234567cdef1234567890abcdef1234567890abcdef1234567890123456789": {
+    "code": "ERR_INVALID_DAY",
+    "title": "Invalid Day",
+    "explain": "The specified day is outside the valid range."
+  },
+  "0x9012345678def1234567890abcdef1234567890abcdef12345678901234567890": {
+    "code": "ERR_ZERO_ROOT",
+    "title": "Zero Root",
+    "explain": "The Merkle root cannot be zero."
+  }
+}
+

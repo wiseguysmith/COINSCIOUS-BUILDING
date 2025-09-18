@@ -1,0 +1,51 @@
+name: Pilot Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with: 
+          version: nightly
+      
+      - name: Build & Test (with gas)
+        run: |
+          mkdir -p audit
+          forge --version
+          forge build
+          forge test --gas-report | tee audit/gas-report-contracts.txt
+      
+      - name: Upload contract audit artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-contracts
+          path: audit/**
+
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with: 
+          node-version: '20'
+      
+      - run: |
+          cd services/api
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm test
+          mkdir -p ../../audit/webhook-samples ../../audit/audit-zip-sample
+      
+      - name: Upload API audit artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-api
+          path: audit/**

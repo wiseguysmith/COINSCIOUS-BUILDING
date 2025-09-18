@@ -1,0 +1,160 @@
+{
+  "success": {
+    "mint": "✅ Successfully mint {amount} tokens to {recipient}",
+    "transfer": "✅ Successfully transfer {amount} tokens from {from} to {to}",
+    "burn": "✅ Successfully burn {amount} tokens",
+    "payout": "✅ Payout will distribute {totalAmount} USDC to {recipientCount} holders. Network fee est: {gasEstimate} ETH",
+    "freeze": "✅ Successfully freeze wallet {wallet}",
+    "unfreeze": "✅ Successfully unfreeze wallet {wallet}",
+    "pause": "✅ Successfully pause the system",
+    "unpause": "✅ Successfully unpause the system"
+  },
+  "errors": {
+    "ERR_NOT_WHITELISTED": {
+      "title": "Wallet Not Whitelisted",
+      "message": "This wallet is not registered in the compliance system. Please add it to the whitelist first.",
+      "action": "Add wallet to compliance registry"
+    },
+    "ERR_REVOKED": {
+      "title": "Wallet Revoked",
+      "message": "This wallet has been permanently revoked from the system and cannot perform any operations.",
+      "action": "Contact compliance team"
+    },
+    "ERR_CLAIMS_EXPIRED": {
+      "title": "Claims Expired",
+      "message": "The compliance claims for this wallet have expired. Please update the claims before proceeding.",
+      "action": "Update compliance claims"
+    },
+    "ERR_LOCKUP_ACTIVE": {
+      "title": "Lockup Period Active",
+      "message": "This wallet is in a lockup period and cannot transfer tokens until {unlockTime}.",
+      "action": "Wait for lockup period to expire"
+    },
+    "ERR_DESTINATION_NOT_ACCREDITED_REG_D": {
+      "title": "Destination Not Accredited",
+      "message": "The destination wallet is not accredited for REG_D transfers. Only accredited investors can receive REG_D tokens.",
+      "action": "Ensure destination wallet is accredited"
+    },
+    "ERR_SOURCE_NOT_ACCREDITED_REG_D": {
+      "title": "Source Not Accredited",
+      "message": "The source wallet is not accredited for REG_D transfers. Only accredited investors can send REG_D tokens.",
+      "action": "Ensure source wallet is accredited"
+    },
+    "ERR_REG_S_US_PERSON_RESTRICTED": {
+      "title": "REG_S US Person Restricted",
+      "message": "REG_S tokens cannot be transferred to US persons. The destination wallet appears to be a US person.",
+      "action": "Use REG_D partition for US persons"
+    },
+    "ERR_UNKNOWN_PARTITION": {
+      "title": "Unknown Partition",
+      "message": "The specified partition '{partition}' is not recognized. Valid partitions are REG_D and REG_S.",
+      "action": "Use a valid partition (REG_D or REG_S)"
+    },
+    "ERR_PARTITION_CROSS_NOT_ALLOWED": {
+      "title": "Partition Cross Not Allowed",
+      "message": "Cross-partition transfers are not permitted. Source and destination must use the same partition.",
+      "action": "Use the same partition for source and destination"
+    },
+    "ERR_PAUSED": {
+      "title": "System Paused",
+      "message": "The system is currently paused and operations are restricted. Please contact an administrator.",
+      "action": "Wait for system to be unpaused"
+    },
+    "ERR_FROZEN": {
+      "title": "Account Frozen",
+      "message": "This wallet is temporarily blocked by compliance and cannot perform any operations.",
+      "action": "Contact compliance team to unfreeze"
+    },
+    "ERR_INSUFFICIENT_BALANCE": {
+      "title": "Insufficient Balance",
+      "message": "The wallet does not have enough tokens for this operation. Current balance: {balance}, Required: {amount}.",
+      "action": "Ensure sufficient token balance"
+    },
+    "ERR_AMOUNT_MUST_BE_POSITIVE": {
+      "title": "Amount Must Be Positive",
+      "message": "The transfer amount must be greater than zero. Please specify a valid amount.",
+      "action": "Enter a positive amount"
+    },
+    "ERR_REASON_CODE_REQUIRED": {
+      "title": "Reason Code Required",
+      "message": "A reason code is required for this operation. Please provide a valid reason code.",
+      "action": "Provide a reason code"
+    },
+    "ERR_UNDERFUNDED_FULL_MODE": {
+      "title": "Underfunded Full Mode",
+      "message": "Insufficient USDC funding for full distribution mode. Required: {required}, Available: {available}.",
+      "action": "Fund the distributor with sufficient USDC"
+    },
+    "ERR_INVALID_SNAPSHOT": {
+      "title": "Invalid Snapshot",
+      "message": "The specified snapshot ID '{snapshotId}' is invalid or not found. Please use a valid snapshot ID.",
+      "action": "Use a valid snapshot ID"
+    },
+    "ERR_ALREADY_DISTRIBUTED": {
+      "title": "Already Distributed",
+      "message": "This snapshot has already been distributed. Each snapshot can only be distributed once.",
+      "action": "Use a different snapshot or check distribution status"
+    },
+    "ERR_INVALID_DAY": {
+      "title": "Invalid Day",
+      "message": "The specified day '{day}' is outside the valid range. Please use a valid day format (YYYYMMDD).",
+      "action": "Use a valid day format"
+    },
+    "ERR_ZERO_ROOT": {
+      "title": "Zero Root",
+      "message": "The Merkle root cannot be zero. Please provide a valid Merkle root.",
+      "action": "Provide a valid Merkle root"
+    },
+    "ERR_INVALID_RECIPIENT": {
+      "title": "Invalid Recipient",
+      "message": "The recipient address is invalid or not provided. Please provide a valid Ethereum address.",
+      "action": "Enter a valid recipient address"
+    },
+    "ERR_INVALID_ADDRESSES": {
+      "title": "Invalid Addresses",
+      "message": "One or more addresses are invalid or not provided. Please provide valid Ethereum addresses.",
+      "action": "Enter valid addresses"
+    },
+    "ERR_INVALID_ADDRESS": {
+      "title": "Invalid Address",
+      "message": "The provided address is invalid. Please provide a valid Ethereum address.",
+      "action": "Enter a valid address"
+    },
+    "ERR_SIMULATION_FAILED": {
+      "title": "Simulation Failed",
+      "message": "Preflight simulation failed due to an error: {error}. Please try again or contact support.",
+      "action": "Retry or contact support"
+    },
+    "ERR_UNKNOWN_ACTION": {
+      "title": "Unknown Action",
+      "message": "The specified action type '{action}' is not recognized. Please use a valid action type.",
+      "action": "Use a valid action type"
+    },
+    "ERR_NO_TAX_FORM": {
+      "title": "No Tax Form",
+      "message": "Recipients {count} lack required tax forms. All payout recipients must have valid tax forms.",
+      "action": "Update recipient tax forms before distribution"
+    },
+    "ERR_144_LOCKUP": {
+      "title": "Rule 144 Lockup",
+      "message": "Transfer blocked by Rule 144 lockup. Tokens are locked until {unlockTime}.",
+      "action": "Wait for lockup period to expire"
+    }
+  },
+  "warnings": {
+    "system_pause": "⚠️ This action affects all system operations",
+    "large_transfer": "⚠️ This is a large transfer amount",
+    "gas_estimate_high": "⚠️ Gas estimate is higher than usual",
+    "tax_form_required": "⚠️ Tax forms required for payout recipients",
+    "accreditation_expiring": "⚠️ Accreditation expires soon: {expiryDate}"
+  },
+  "info": {
+    "gas_estimate": "Estimated gas: {gas} units",
+    "network_fee": "Network fee: {fee} ETH",
+    "recipients_count": "Recipients: {count}",
+    "total_amount": "Total amount: {amount}",
+    "partition_info": "Partition: {partition}",
+    "compliance_status": "Compliance: {status}"
+  }
+}
+

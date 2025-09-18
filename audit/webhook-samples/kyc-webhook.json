@@ -1,0 +1,22 @@
+{
+  "webhook": {
+    "id": "webhook_1234567890abcdef",
+    "event": "kyc.verified",
+    "timestamp": 1735689600,
+    "idempotency_key": "kyc_verify_0x742d35cc6634c0532925a3b8d4c9db96c4b4d8b6_1735689600",
+    "data": {
+      "wallet_address": "0x742d35cc6634c0532925a3b8d4c9db96c4b4d8b6",
+      "kyc_status": "VERIFIED",
+      "accreditation_status": "ACCREDITED",
+      "verification_date": "2025-01-27T00:00:00Z",
+      "expires_at": "2026-01-27T00:00:00Z",
+      "compliance_notes": "Full KYC verification completed"
+    }
+  },
+  "signature": {
+    "algorithm": "HMAC-SHA256",
+    "timestamp": "1735689600",
+    "signature": "hmac_signature_here",
+    "public_key": "oracle_public_key_here"
+  }
+}

@@ -1,0 +1,35 @@
+# COINSCIOUS Security Token Platform Deployment Configuration
+# Copy this file to deploy.config and fill in your values
+
+# Network Configuration
+NETWORK=base-sepolia
+RPC_URL=https://sepolia.base.org
+CHAIN_ID=84532
+
+# Deployment Addresses
+DEPLOYER_ADDRESS=0x0000000000000000000000000000000000000000
+GNOSIS_SAFE_ADDRESS=0x0000000000000000000000000000000000000000
+TIMELOCK_CONTROLLER_ADDRESS=0x0000000000000000000000000000000000000000
+
+# Mock USDC for testing (deploy your own or use existing)
+MOCK_USDC_ADDRESS=0x0000000000000000000000000000000000000000
+
+# Gas Configuration
+GAS_LIMIT=5000000
+GAS_PRICE=1000000000
+
+# Private Key (for deployment - keep secure!)
+PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000000
+
+# Etherscan API Key for contract verification
+ETHERSCAN_API_KEY=your_etherscan_api_key_here
+
+# Optional: Custom deployment parameters
+TOKEN_NAME="COINSCIOUS Security Token"
+TOKEN_SYMBOL="COIN"
+TOKEN_DECIMALS=18
+
+# Compliance Configuration
+REG_D_LOCKUP_MONTHS=12
+REG_S_LOCKUP_MONTHS=6
+REG_S_RESTRICTION_MONTHS=6

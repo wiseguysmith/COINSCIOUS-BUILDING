@@ -1,0 +1,42 @@
+{
+  "name": "coinscious-platform",
+  "version": "1.0.0",
+  "description": "COINSCIOUS Security Token Platform - MVP++",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "contracts",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "gen:reason-codes": "tsx scripts/gen-reason-codes.ts",
+    "gen:all": "pnpm gen:reason-codes",
+    "deploy:test": "cd contracts && forge script script/DeployTest.s.sol:DeployTest --broadcast",
+    "deploy:sepolia": "cd contracts && forge script script/Deploy.s.sol:Deploy --rpc-url $RPC_URL_BASE_SEPOLIA --private-key $PRIVATE_KEY --broadcast --verify",
+    "test:contracts": "cd contracts && forge test",
+    "test:coverage": "cd contracts && forge coverage",
+    "gas-report": "cd contracts && forge test --gas-report",
+    "slither": "cd contracts && slither . --fail-high --fail-medium",
+    "smoke-test": "cd contracts && forge script script/SmokeTest.s.sol:SmokeTest --broadcast",
+    "indexer:dev": "cd apps/indexer && pnpm dev",
+    "console:dev": "cd apps/console && pnpm dev",
+    "db:migrate": "cd apps/indexer && pnpm db:migrate",
+    "db:seed": "cd apps/indexer && pnpm db:seed"
+  },
+  "devDependencies": {
+    "turbo": "^1.10.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.2.0",
+    "@types/node": "^20.8.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
+

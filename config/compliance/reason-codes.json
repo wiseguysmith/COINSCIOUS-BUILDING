@@ -1,0 +1,130 @@
+{
+  "codes": [
+    {
+      "code": "ERR_OK",
+      "title": "Success",
+      "explain": "Operation completed successfully."
+    },
+    {
+      "code": "ERR_NOT_WHITELISTED",
+      "title": "Wallet Not Whitelisted",
+      "explain": "This wallet is not registered in the compliance system."
+    },
+    {
+      "code": "ERR_REVOKED",
+      "title": "Wallet Revoked",
+      "explain": "This wallet has been permanently revoked from the system."
+    },
+    {
+      "code": "ERR_CLAIMS_EXPIRED",
+      "title": "Claims Expired",
+      "explain": "The compliance claims for this wallet have expired."
+    },
+    {
+      "code": "ERR_LOCKUP_ACTIVE",
+      "title": "Lockup Period Active",
+      "explain": "This wallet is in a lockup period and cannot transfer tokens."
+    },
+    {
+      "code": "ERR_DESTINATION_NOT_ACCREDITED_REG_D",
+      "title": "Destination Not Accredited",
+      "explain": "The destination wallet is not accredited for REG_D transfers."
+    },
+    {
+      "code": "ERR_SOURCE_NOT_ACCREDITED_REG_D",
+      "title": "Source Not Accredited",
+      "explain": "The source wallet is not accredited for REG_D transfers."
+    },
+    {
+      "code": "ERR_REG_S_US_PERSON_RESTRICTED",
+      "title": "REG_S US Person Restricted",
+      "explain": "REG_S tokens cannot be transferred to US persons."
+    },
+    {
+      "code": "ERR_UNKNOWN_PARTITION",
+      "title": "Unknown Partition",
+      "explain": "The specified partition is not recognized."
+    },
+    {
+      "code": "ERR_PARTITION_CROSS_NOT_ALLOWED",
+      "title": "Partition Cross Not Allowed",
+      "explain": "Cross-partition transfers are not permitted."
+    },
+    {
+      "code": "ERR_PAUSED",
+      "title": "System Paused",
+      "explain": "The system is currently paused and operations are restricted."
+    },
+    {
+      "code": "ERR_FROZEN",
+      "title": "Account Frozen",
+      "explain": "This wallet is temporarily blocked by compliance."
+    },
+    {
+      "code": "ERR_INSUFFICIENT_BALANCE",
+      "title": "Insufficient Balance",
+      "explain": "The wallet does not have enough tokens for this operation."
+    },
+    {
+      "code": "ERR_AMOUNT_MUST_BE_POSITIVE",
+      "title": "Amount Must Be Positive",
+      "explain": "The transfer amount must be greater than zero."
+    },
+    {
+      "code": "ERR_REASON_CODE_REQUIRED",
+      "title": "Reason Code Required",
+      "explain": "A reason code is required for this operation."
+    },
+    {
+      "code": "ERR_UNDERFUNDED_FULL_MODE",
+      "title": "Underfunded Full Mode",
+      "explain": "Insufficient USDC funding for full distribution mode."
+    },
+    {
+      "code": "ERR_INVALID_SNAPSHOT",
+      "title": "Invalid Snapshot",
+      "explain": "The specified snapshot ID is invalid or not found."
+    },
+    {
+      "code": "ERR_ALREADY_DISTRIBUTED",
+      "title": "Already Distributed",
+      "explain": "This snapshot has already been distributed."
+    },
+    {
+      "code": "ERR_INVALID_DAY",
+      "title": "Invalid Day",
+      "explain": "The specified day is outside the valid range."
+    },
+    {
+      "code": "ERR_ZERO_ROOT",
+      "title": "Zero Root",
+      "explain": "The Merkle root cannot be zero."
+    },
+    {
+      "code": "ERR_INVALID_RECIPIENT",
+      "title": "Invalid Recipient",
+      "explain": "The recipient address is invalid or not provided."
+    },
+    {
+      "code": "ERR_INVALID_ADDRESSES",
+      "title": "Invalid Addresses",
+      "explain": "One or more addresses are invalid or not provided."
+    },
+    {
+      "code": "ERR_INVALID_ADDRESS",
+      "title": "Invalid Address",
+      "explain": "The provided address is invalid."
+    },
+    {
+      "code": "ERR_SIMULATION_FAILED",
+      "title": "Simulation Failed",
+      "explain": "Preflight simulation failed due to an error."
+    },
+    {
+      "code": "ERR_UNKNOWN_ACTION",
+      "title": "Unknown Action",
+      "explain": "The specified action type is not recognized."
+    }
+  ]
+}
+

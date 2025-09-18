@@ -1,0 +1,36 @@
+{
+  "name": "COINSCIOUS Platform Dev",
+  "image": "coinscious-dev:latest",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.vscode-json",
+        "tintinweb.solidity-visual-auditor",
+        "ms-vscode.vscode-typescript-next",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-json",
+        "ms-vscode.vscode-yaml",
+        "ms-vscode.vscode-markdown"
+      ],
+      "settings": {
+        "solidity.defaultCompiler": "foundry",
+        "solidity.compileUsingRemoteVersion": "0.8.19",
+        "files.associations": {
+          "*.sol": "solidity",
+          "*.t.sol": "solidity"
+        }
+      }
+    }
+  },
+  "forwardPorts": [3000, 8545],
+  "postCreateCommand": "forge install",
+  "remoteUser": "root"
+}

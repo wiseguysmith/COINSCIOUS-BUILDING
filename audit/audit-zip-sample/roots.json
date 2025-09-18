@@ -1,0 +1,28 @@
+{
+  "platform": "COINSCIOUS",
+  "network": "base-sepolia",
+  "version": "1.0.0",
+  "roots": [
+    {
+      "date": "2025-01-27",
+      "timestamp": 1735689600,
+      "root": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "txHash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+      "blockNumber": 12345678,
+      "description": "Daily admin log Merkle root commitment"
+    },
+    {
+      "date": "2025-01-26",
+      "timestamp": 1735603200,
+      "root": "0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321",
+      "txHash": "0x0987654321fedcba0987654321fedcba0987654321fedcba0987654321fedcba",
+      "blockNumber": 12345600,
+      "description": "Daily admin log Merkle root commitment"
+    }
+  ],
+  "metadata": {
+    "generatedAt": "2025-01-27T10:00:00Z",
+    "totalRoots": 2,
+    "lastCommitted": "2025-01-27T00:00:00Z"
+  }
+}

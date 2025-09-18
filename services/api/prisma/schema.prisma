@@ -1,0 +1,250 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Organizations (multi-tenant)
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  users       User[]
+  properties  Property[]
+  investors   Investor[]
+  transfers   TransferRequest[]
+  payouts     Payout[]
+  adminActions AdminAction[]
+  webhookEvents WebhookEvent[]
+  
+  @@map("organizations")
+}
+
+// Users with roles
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String
+  firstName      String?
+  lastName       String?
+  role           UserRole @default(ANALYST)
+  organizationId String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relationships
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  adminActions   AdminAction[]
+  
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  COMPLIANCE
+  ANALYST
+}
+
+// Properties (real estate deals)
+model Property {
+  id             String   @id @default(cuid())
+  name           String
+  valuationUSD   Decimal  @db.Decimal(20, 2)
+  totalShares    BigInt
+  sharePriceUSD  Decimal  @db.Decimal(20, 2)
+  partitions     String[] // REG_D, REG_S
+  lockups        Json     // { REG_D: "12 months", REG_S: "6 months" }
+  organizationId String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relationships
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  investors      Investor[]
+  payouts       Payout[]
+  
+  @@map("properties")
+}
+
+// Investors and their claims
+model Investor {
+  id             String   @id @default(cuid())
+  email          String
+  wallet         String   @unique
+  organizationId String
+  isWhitelisted  Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relationships
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  memberships    Membership[]
+  transfers      TransferRequest[]
+  
+  @@map("investors")
+}
+
+// Investor membership in properties
+model Membership {
+  id           String   @id @default(cuid())
+  investorId   String
+  propertyId   String
+  partition    String   // REG_D or REG_S
+  shares       BigInt
+  lockupUntil  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relationships
+  investor     Investor @relation(fields: [investorId], references: [id])
+  property     Property @relation(fields: [propertyId], references: [id])
+  
+  @@unique([investorId, propertyId, partition])
+  @@map("memberships")
+}
+
+// Transfer requests (P2P transfers)
+model TransferRequest {
+  id            String           @id @default(cuid())
+  sellerId      String
+  buyerEmail    String?
+  buyerWallet   String?
+  propertyId    String
+  partition     String
+  shares        BigInt
+  pricePerShare Decimal          @db.Decimal(20, 2)
+  status        TransferStatus   @default(DRAFT)
+  kycStatus     KYCStatus        @default(PENDING)
+  settlementProof String?        // Wire/tx proof
+  onchainTxHash String?          // Blockchain transaction hash
+  organizationId String
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  
+  // Relationships
+  seller        Investor @relation(fields: [sellerId], references: [id])
+  property      Property @relation(fields: [propertyId], references: [id])
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  
+  @@map("transfer_requests")
+}
+
+enum TransferStatus {
+  DRAFT
+  KYC_PENDING
+  READY_FOR_APPROVAL
+  APPROVED
+  SETTLED
+  ONCHAIN_SETTLED
+  CLOSED
+}
+
+enum KYCStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Payout distributions
+model Payout {
+  id             String   @id @default(cuid())
+  propertyId     String
+  snapshotId     String   @unique
+  totalAmount    Decimal  @db.Decimal(20, 2)
+  distributedAmount Decimal @db.Decimal(20, 2)
+  residualAmount Decimal  @db.Decimal(20, 2)
+  mode           PayoutMode
+  status         PayoutStatus @default(PENDING)
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relationships
+  property       Property @relation(fields: [propertyId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  lines          PayoutLine[]
+  
+  @@map("payouts")
+}
+
+enum PayoutMode {
+  FULL
+  PRO_RATA
+}
+
+enum PayoutStatus {
+  PENDING
+  FUNDED
+  DISTRIBUTING
+  COMPLETED
+  FAILED
+}
+
+// Individual payout lines
+model PayoutLine {
+  id         String   @id @default(cuid())
+  payoutId   String
+  investorId String
+  shares     BigInt
+  amount     Decimal  @db.Decimal(20, 2)
+  createdAt  DateTime @default(now())
+  
+  // Relationships
+  payout     Payout @relation(fields: [payoutId], references: [id])
+  investor   Investor @relation(fields: [investorId], references: [id])
+  
+  @@map("payout_lines")
+}
+
+// Admin actions for audit trail (append-only)
+model AdminAction {
+  id         String   @id @default(cuid())
+  orgId      String
+  org        Organization @relation(fields: [orgId], references: [id])
+  actorId    String
+  actor      User     @relation(fields: [actorId], references: [id])
+  action     String
+  targetType String
+  targetId   String?
+  reason     String?
+  meta       Json?
+  createdAt  DateTime @default(now())
+  
+  // Note: This table is append-only. Updates/deletes are prevented by database triggers.
+  // See migrations/ for trigger implementation.
+
+  @@index([orgId, createdAt])
+  @@index([actorId])
+  @@index([targetType, targetId])
+  @@map("admin_actions")
+}
+
+// Webhook events for idempotency
+model WebhookEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  vendor         String   // "alloy", "parallel"
+  eventId        String   // Vendor's event ID
+  eventType      String   // "kyc_verified", "accreditation_updated"
+  payload        Json
+  processed      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  
+  // Relationships
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  
+  @@unique([organizationId, vendor, eventId])
+  @@map("webhook_events")
+}
