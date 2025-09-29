@@ -6,12 +6,13 @@
 
 COINSCIOUS is a comprehensive security token platform built on Base mainnet, featuring:
 
-- **ERC-1400-lite Security Tokens** with REG_D/REG_S partitions
+- **ERC-1400-lite Security Tokens** with REG_D/REG_S partitions and UUPS upgradeability
 - **Compliance Registry** for KYC/Accreditation management
 - **Automated Payout Distributor** with USDC integration
 - **Admin Action Log** with daily Merkle root anchoring
 - **Factory Pattern** for scalable token deployment
 - **Timelock Controller** for secure governance
+- **Tokenomics Modules**: Vesting, Mint/Burn Manager, Treasury, and NAV Oracle
 
 ## **Architecture**
 
@@ -20,11 +21,15 @@ COINSCIOUS is a comprehensive security token platform built on Base mainnet, fea
 │                    COINSCIOUS PLATFORM                         │
 ├─────────────────────────────────────────────────────────────────┤
 │  Smart Contracts (Solidity)                                   │
-│  ├── SecurityToken (ERC-1400-lite)                            │
+│  ├── SecurityTokenV2 (ERC-1400-lite + UUPS)                   │
 │  ├── ComplianceRegistry (KYC/Accred)                          │
 │  ├── PayoutDistributor (USDC Automation)                      │
 │  ├── Factories (EIP-1167 Clones)                              │
-│  └── LogAnchor (Merkle Root Storage)                          │
+│  ├── LogAnchor (Merkle Root Storage)                          │
+│  ├── Vesting (4-year + 1-year cliff)                          │
+│  ├── MintBurnManager (Role-based minting/burning)             │
+│  ├── Treasury (Reserve management)                            │
+│  └── NAVOracle (Net Asset Value tracking)                     │
 ├─────────────────────────────────────────────────────────────────┤
 │  API Layer (Fastify + Prisma)                                 │
 │  ├── RESTful Endpoints                                        │
@@ -59,6 +64,69 @@ COINSCIOUS is a comprehensive security token platform built on Base mainnet, fea
 - **Multi-sig Support**: Gnosis Safe integration ready
 - **Role-based Access**: OpenZeppelin AccessControl
 - **Emergency Procedures**: Force transfer capabilities
+
+### **Tokenomics & Real Estate Integration**
+- **Vesting System**: 4-year vesting with 1-year cliff for founders/team
+- **Mint/Burn Manager**: Controlled token creation for property deeds
+- **Treasury Management**: Reserve token handling for buybacks and partnerships
+- **NAV Oracle**: Net Asset Value tracking for property valuations
+- **UUPS Upgradeability**: Future-proof token contract architecture
+
+## **Tokenomics Lifecycle**
+
+The COINSCIOUS platform follows a comprehensive lifecycle for real estate tokenization:
+
+### **1. Property Deed Approval → Token Minting**
+```
+Property Deed Approved → MintBurnManager.mint() → SecurityToken.mintByPartition()
+```
+- Property deeds are evaluated and approved by compliance team
+- Tokens are minted to approved investors via `MintBurnManager`
+- Tokens are allocated to appropriate partitions (REG_D for accredited, REG_S for non-US)
+- All minting operations require `MINTER_ROLE` authorization
+
+### **2. Founder/Team Token Vesting**
+```
+Founder Tokens → Vesting.createVestingSchedule() → Linear Release Over 4 Years
+```
+- Founder and team tokens are locked in `Vesting` contract
+- 4-year vesting schedule with 1-year cliff period
+- Tokens release linearly after cliff period
+- Vesting schedules can be revoked if marked as revocable
+
+### **3. Treasury Reserve Management**
+```
+Reserve Tokens → Treasury.sendTokens() → Buybacks/Partnerships/Liquidity
+```
+- Treasury holds reserve tokens for strategic operations
+- Multi-sig controlled spending with daily/monthly limits
+- Supports buybacks, partnership payments, and liquidity provision
+- All transactions are logged and auditable
+
+### **4. NAV Tracking & Valuation**
+```
+Property Valuations → NAVOracle.setNAV() → Dashboard Integration
+```
+- Net Asset Value (NAV) is set manually via `NAVOracle`
+- Future integration with Chainlink price feeds planned
+- NAV updates have frequency limits and change validation
+- Confidence levels and source tracking for transparency
+
+### **5. Token Redemption/Exit**
+```
+Redemption Request → MintBurnManager.burn() → Treasury Payment
+```
+- Tokens can be burned when properties are sold or redeemed
+- Burning requires `BURNER_ROLE` authorization
+- Treasury handles USDC payouts to redeeming holders
+- All burn operations are logged with reasons
+
+### **Role-Based Access Control**
+- **MINTER_ROLE**: Authorized to mint tokens for property deeds
+- **BURNER_ROLE**: Authorized to burn tokens for redemptions
+- **TREASURY_ROLE**: Authorized to manage reserve token operations
+- **ORACLE_ROLE**: Authorized to update NAV values
+- **CONTROLLER_ROLE**: Authorized for force transfers and compliance actions
 
 ## **Quick Start**
 
