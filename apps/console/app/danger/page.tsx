@@ -13,17 +13,25 @@ import {
   UserX,
   CheckCircle,
   XCircle,
-  Lock
+  Lock,
+  List,
+  Plus
 } from 'lucide-react';
 import { preflightSimulator } from '@/lib/preflight';
+import { MultisigConfirmation } from '@/components/MultisigConfirmation';
+import { MultisigDashboard } from '@/components/MultisigDashboard';
+import { MultisigAction, MultisigProposal } from '@/lib/multisig';
 
 export default function DangerZonePage() {
+  const [view, setView] = useState<'actions' | 'create' | 'details'>('actions');
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const [preflightResult, setPreflightResult] = useState<any>(null);
   const [requiresConfirmation, setRequiresConfirmation] = useState(false);
   const [confirmationStep, setConfirmationStep] = useState(0);
   const [targetAddress, setTargetAddress] = useState('');
   const [amount, setAmount] = useState('');
+  const [currentAction, setCurrentAction] = useState<MultisigAction | null>(null);
+  const [currentOperator] = useState('0x1234567890123456789012345678901234567890'); // In production, get from wallet
 
   const dangerActions = [
     {
@@ -75,6 +83,7 @@ export default function DangerZonePage() {
 
   const handleActionSelect = (actionId: string) => {
     setSelectedAction(actionId);
+    setView('create');
     setConfirmationStep(0);
     setPreflightResult(null);
   };
@@ -95,16 +104,50 @@ export default function DangerZonePage() {
     }
   };
 
-  const handleConfirmation = () => {
-    setConfirmationStep(1);
+  const handleCreateMultisigProposal = () => {
+    if (!selectedAction) return;
+
+    const proposal: MultisigProposal = {
+      actionType: selectedAction,
+      targetAddress: targetAddress || undefined,
+      amount: amount || undefined,
+      reason: `Danger zone action: ${selectedAction}`,
+      data: {
+        preflightResult,
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    setCurrentAction({
+      id: '',
+      actionType: selectedAction as any,
+      targetAddress: proposal.targetAddress,
+      amount: proposal.amount,
+      reason: proposal.reason,
+      proposer: currentOperator,
+      approvers: [],
+      approvals: 0,
+      requiredApprovals: 2,
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      createdAt: new Date(),
+      data: proposal.data
+    });
   };
 
-  const handleFinalExecution = () => {
-    if (confirmationStep === 1) {
-      // Execute the action
-      console.log('Executing danger zone action:', selectedAction);
-      setConfirmationStep(2);
-    }
+  const handleActionCreated = (action: MultisigAction) => {
+    setCurrentAction(action);
+    setView('details');
+  };
+
+  const handleActionExecuted = (action: MultisigAction) => {
+    setCurrentAction(action);
+    // Could show success message or redirect
+  };
+
+  const handleActionSelectFromDashboard = (action: MultisigAction) => {
+    setCurrentAction(action);
+    setView('details');
   };
 
   const resetAction = () => {
@@ -114,6 +157,8 @@ export default function DangerZonePage() {
     setConfirmationStep(0);
     setTargetAddress('');
     setAmount('');
+    setCurrentAction(null);
+    setView('actions');
   };
 
   const selectedActionData = dangerActions.find(action => action.id === selectedAction);
@@ -121,229 +166,204 @@ export default function DangerZonePage() {
   return (
     <div className="container mx-auto p-6">
       <div className="mb-8">
-        <div className="flex items-center space-x-2 mb-2">
-          <AlertTriangle className="h-8 w-8 text-red-500" />
-          <h1 className="text-3xl font-bold text-red-600">Danger Zone</h1>
-        </div>
-        <p className="text-gray-600">Critical system operations requiring two-operator confirmation</p>
-      </div>
-
-      {/* Warning Banner */}
-      <Card className="mb-8 border-red-200 bg-red-50">
-        <CardContent className="pt-6">
-          <div className="flex items-center space-x-3">
-            <Lock className="h-6 w-6 text-red-600" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="h-8 w-8 text-red-500" />
             <div>
-              <h3 className="font-medium text-red-800">Two-Operator Confirmation Required</h3>
-              <p className="text-sm text-red-700">
-                All actions in this section require approval from two different operator wallets for security.
-              </p>
+              <h1 className="text-3xl font-bold text-red-600">Danger Zone</h1>
+              <p className="text-gray-600">Critical system operations requiring two-operator confirmation</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex space-x-2">
+            <Button
+              variant={view === 'actions' ? 'default' : 'outline'}
+              onClick={() => setView('actions')}
+              className="flex items-center space-x-2"
+            >
+              <List className="h-4 w-4" />
+              <span>All Actions</span>
+            </Button>
+            <Button
+              variant={view === 'create' ? 'default' : 'outline'}
+              onClick={() => setView('create')}
+              className="flex items-center space-x-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Create Action</span>
+            </Button>
+          </div>
+        </div>
 
-      {!selectedAction ? (
-        /* Action Selection */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {dangerActions.map((action) => {
-            const Icon = action.icon;
-            return (
-              <Card 
-                key={action.id} 
-                className={`cursor-pointer hover:shadow-lg transition-shadow ${action.borderColor}`}
-                onClick={() => handleActionSelect(action.id)}
-              >
+        {/* Warning Banner */}
+        <Card className="mb-8 border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center space-x-3">
+              <Lock className="h-6 w-6 text-red-600" />
+              <div>
+                <h3 className="font-medium text-red-800">Two-Operator Confirmation Required</h3>
+                <p className="text-sm text-red-700">
+                  All actions in this section require approval from two different operator wallets for security.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content */}
+      {view === 'actions' && (
+        <MultisigDashboard
+          currentOperator={currentOperator}
+          onActionSelect={handleActionSelectFromDashboard}
+        />
+      )}
+
+      {view === 'create' && (
+        <div className="space-y-6">
+          {/* Action Selection */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {dangerActions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <Card 
+                  key={action.id} 
+                  className={`cursor-pointer hover:shadow-lg transition-shadow ${action.borderColor}`}
+                  onClick={() => handleActionSelect(action.id)}
+                >
+                  <CardHeader>
+                    <CardTitle className={`flex items-center space-x-2 ${action.color}`}>
+                      <Icon className="h-5 w-5" />
+                      <span>{action.title}</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-600">{action.description}</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Action Configuration */}
+          {selectedAction && (
+            <div className="max-w-2xl mx-auto">
+              <Card className={`${selectedActionData?.borderColor} ${selectedActionData?.bgColor}`}>
                 <CardHeader>
-                  <CardTitle className={`flex items-center space-x-2 ${action.color}`}>
-                    <Icon className="h-5 w-5" />
-                    <span>{action.title}</span>
+                  <CardTitle className={`flex items-center space-x-2 ${selectedActionData?.color}`}>
+                    {selectedActionData && <selectedActionData.icon className="h-5 w-5" />}
+                    <span>{selectedActionData?.title}</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-gray-600">{action.description}</p>
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-600">{selectedActionData?.description}</p>
+
+                    {(selectedAction === 'freeze' || selectedAction === 'unfreeze' || selectedAction === 'forceTransfer') && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Target Address
+                        </label>
+                        <input
+                          type="text"
+                          value={targetAddress}
+                          onChange={(e) => setTargetAddress(e.target.value)}
+                          placeholder="0x..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                    )}
+
+                    {selectedAction === 'forceTransfer' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Amount
+                        </label>
+                        <input
+                          type="number"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          placeholder="1000"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex space-x-2">
+                      <Button onClick={handlePreflight} className="flex-1">
+                        Run Preflight Check
+                      </Button>
+                      <Button onClick={resetAction} variant="outline">
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-            );
-          })}
+
+              {/* Preflight Result */}
+              {preflightResult && (
+                <Card className={`mt-6 ${preflightResult.success ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                  <CardHeader>
+                    <CardTitle className={`flex items-center space-x-2 ${preflightResult.success ? 'text-green-800' : 'text-red-800'}`}>
+                      {preflightResult.success ? (
+                        <CheckCircle className="h-5 w-5" />
+                      ) : (
+                        <XCircle className="h-5 w-5" />
+                      )}
+                      <span>Preflight Result</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className={preflightResult.success ? 'text-green-700' : 'text-red-700'}>
+                      {preflightResult.humanReadable}
+                    </p>
+                    {preflightResult.gasEstimate && (
+                      <p className="text-sm text-gray-600 mt-2">
+                        Gas Estimate: {preflightResult.gasEstimate}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Multisig Confirmation */}
+              {requiresConfirmation && (
+                <div className="mt-6">
+                  <MultisigConfirmation
+                    proposal={{
+                      actionType: selectedAction,
+                      targetAddress: targetAddress || undefined,
+                      amount: amount || undefined,
+                      reason: `Danger zone action: ${selectedAction}`,
+                      data: { preflightResult }
+                    }}
+                    proposer={currentOperator}
+                    onActionCreated={handleActionCreated}
+                    onActionExecuted={handleActionExecuted}
+                    onCancel={resetAction}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      ) : (
-        /* Action Configuration */
-        <div className="max-w-2xl mx-auto">
-          <Card className={`${selectedActionData?.borderColor} ${selectedActionData?.bgColor}`}>
-            <CardHeader>
-              <CardTitle className={`flex items-center space-x-2 ${selectedActionData?.color}`}>
-                {selectedActionData && <selectedActionData.icon className="h-5 w-5" />}
-                <span>{selectedActionData?.title}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <p className="text-sm text-gray-600">{selectedActionData?.description}</p>
+      )}
 
-                {(selectedAction === 'freeze' || selectedAction === 'unfreeze' || selectedAction === 'forceTransfer') && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Target Address
-                    </label>
-                    <input
-                      type="text"
-                      value={targetAddress}
-                      onChange={(e) => setTargetAddress(e.target.value)}
-                      placeholder="0x..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                )}
-
-                {selectedAction === 'forceTransfer' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Amount
-                    </label>
-                    <input
-                      type="number"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      placeholder="1000"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                )}
-
-                <div className="flex space-x-2">
-                  <Button onClick={handlePreflight} className="flex-1">
-                    Run Preflight Check
-                  </Button>
-                  <Button onClick={resetAction} variant="outline">
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Preflight Result */}
-          {preflightResult && (
-            <Card className={`mt-6 ${preflightResult.success ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
-              <CardHeader>
-                <CardTitle className={`flex items-center space-x-2 ${preflightResult.success ? 'text-green-800' : 'text-red-800'}`}>
-                  {preflightResult.success ? (
-                    <CheckCircle className="h-5 w-5" />
-                  ) : (
-                    <XCircle className="h-5 w-5" />
-                  )}
-                  <span>Preflight Result</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className={preflightResult.success ? 'text-green-700' : 'text-red-700'}>
-                  {preflightResult.humanReadable}
-                </p>
-                {preflightResult.gasEstimate && (
-                  <p className="text-sm text-gray-600 mt-2">
-                    Gas Estimate: {preflightResult.gasEstimate}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Two-Operator Confirmation */}
-          {requiresConfirmation && confirmationStep === 0 && (
-            <Card className="mt-6 border-yellow-200 bg-yellow-50">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2 text-yellow-800">
-                  <Lock className="h-5 w-5" />
-                  <span>Two-Operator Confirmation Required</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <p className="text-yellow-700">
-                    This action requires approval from two different operator wallets. 
-                    Please confirm that you have the necessary permissions.
-                  </p>
-                  
-                  <div className="bg-yellow-100 p-4 rounded-lg">
-                    <h4 className="font-medium text-yellow-900 mb-2">Confirmation Steps:</h4>
-                    <ol className="text-sm text-yellow-800 list-decimal list-inside space-y-1">
-                      <li>First operator confirms the action</li>
-                      <li>Second operator reviews and approves</li>
-                      <li>Action executes automatically</li>
-                    </ol>
-                  </div>
-
-                  <div className="flex space-x-2">
-                    <Button onClick={handleConfirmation} className="flex-1">
-                      I Confirm - Proceed to Two-Operator Approval
-                    </Button>
-                    <Button onClick={resetAction} variant="outline">
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Confirmation Step 1 */}
-          {confirmationStep === 1 && (
-            <Card className="mt-6 border-blue-200 bg-blue-50">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2 text-blue-800">
-                  <Shield className="h-5 w-5" />
-                  <span>First Operator Confirmation</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <p className="text-blue-700">
-                    First operator has confirmed. Waiting for second operator approval...
-                  </p>
-                  
-                  <div className="bg-blue-100 p-4 rounded-lg">
-                    <h4 className="font-medium text-blue-900 mb-2">Action Details:</h4>
-                    <ul className="text-sm text-blue-800 space-y-1">
-                      <li>Action: {selectedActionData?.title}</li>
-                      {targetAddress && <li>Target: {targetAddress}</li>}
-                      {amount && <li>Amount: {amount}</li>}
-                      <li>Gas Estimate: {preflightResult?.gasEstimate}</li>
-                    </ul>
-                  </div>
-
-                  <div className="flex space-x-2">
-                    <Button onClick={handleFinalExecution} className="flex-1">
-                      Second Operator - Approve & Execute
-                    </Button>
-                    <Button onClick={resetAction} variant="outline">
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Confirmation Complete */}
-          {confirmationStep === 2 && (
-            <Card className="mt-6 border-green-200 bg-green-50">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2 text-green-800">
-                  <CheckCircle className="h-5 w-5" />
-                  <span>Action Executed Successfully</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-green-700 mb-4">
-                  The {selectedActionData?.title.toLowerCase()} action has been executed successfully.
-                </p>
-                <Button onClick={resetAction} className="w-full">
-                  Return to Danger Zone
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+      {view === 'details' && currentAction && (
+        <div className="max-w-4xl mx-auto">
+          <MultisigConfirmation
+            proposal={{
+              actionType: currentAction.actionType,
+              targetAddress: currentAction.targetAddress,
+              amount: currentAction.amount,
+              reason: currentAction.reason,
+              data: currentAction.data
+            }}
+            proposer={currentOperator}
+            onActionCreated={handleActionCreated}
+            onActionExecuted={handleActionExecuted}
+            onCancel={resetAction}
+          />
         </div>
       )}
     </div>
