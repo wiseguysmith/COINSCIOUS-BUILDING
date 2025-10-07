@@ -1,0 +1,118 @@
+[33mcommit d42475965e6d1021c00d84237765da8de734fbea[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m
+Author: WISE GUY <34535544+wiseguysmith@users.noreply.github.com>
+Date:   Thu Sep 18 11:23:09 2025 -0400
+
+    Update COINSCIOUS BUILDING with latest code - contracts, apps, services, and documentation
+
+.devcontainer/devcontainer.json
+.github/workflows/ci.yml
+.github/workflows/pilot-audit.yml
+.github/workflows/test.yml
+.gitignore
+Dockerfile
+IMPLEMENTATION_STATUS.md
+MVP_PLUS_PLUS_COMPLETE.md
+MVP_PLUS_PLUS_ROADMAP.md
+PHASE_1_COMPLETE_SUMMARY.md
+README.md
+RUNBOOK.md
+THREAT_MODEL.md
+apps/console/app/components/TestModeBanner.tsx
+apps/console/app/globals.css
+apps/console/app/layout.tsx
+apps/console/app/overview/page.tsx
+apps/console/app/page.tsx
+apps/console/app/providers.tsx
+apps/console/components/ui/badge.tsx
+apps/console/components/ui/button.tsx
+apps/console/components/ui/card.tsx
+apps/console/lib/preflight.ts
+apps/console/lib/utils.ts
+apps/console/next.config.js
+apps/console/package.json
+apps/console/tailwind.config.js
+apps/indexer/package.json
+apps/indexer/src/database.ts
+apps/indexer/src/index.ts
+apps/indexer/src/logger.ts
+audit/audit-zip-sample/SHA256SUMS.txt
+audit/audit-zip-sample/cap-table-snapshot.csv
+audit/audit-zip-sample/roots.json
+audit/audit-zip-sample/statements/example.pdf
+audit/compliance-registry-code-review.md
+audit/current-status-summary.md
+audit/how-to-reproduce.md
+audit/readiness-report.md
+audit/runbooks/04-oracle-rotation.md
+audit/runbooks/05-incidents.md
+audit/security-token-code-review.md
+audit/webhook-samples/kyc-webhook.json
+backend/database/schema.sql
+config/compliance/reason-codes.json
+config/ui/preflight-texts.json
+contracts/.github/workflows/pilot-audit.yml
+contracts/.gitmodules
+contracts/DEPLOYMENT_GUIDE.md
+contracts/README.md
+contracts/audit/gas-report-contracts.txt
+contracts/deploy-config.example
+contracts/deploy.config.example
+contracts/foundry-install.ps1
+contracts/foundry-releases.html
+contracts/foundry.lock
+contracts/foundry.toml
+contracts/foundryup
+contracts/lib/ComplianceTypes.sol
+contracts/lib/ReasonCodes.sol
+contracts/lib/forge-std/.gitattributes
+contracts/lib/forge-std/.github/CODEOWNERS
+contracts/lib/forge-std/.github/workflows/ci.yml
+contracts/lib/forge-std/.github/workflows/sync.yml
+contracts/lib/forge-std/.gitignore
+contracts/lib/forge-std/CONTRIBUTING.md
+contracts/lib/forge-std/LICENSE-APACHE
+contracts/lib/forge-std/LICENSE-MIT
+contracts/lib/forge-std/README.md
+contracts/lib/forge-std/foundry.toml
+contracts/lib/forge-std/package.json
+contracts/lib/forge-std/scripts/vm.py
+contracts/lib/forge-std/src/Base.sol
+contracts/lib/forge-std/src/Script.sol
+contracts/lib/forge-std/src/StdAssertions.sol
+contracts/lib/forge-std/src/StdChains.sol
+contracts/lib/forge-std/src/StdCheats.sol
+contracts/lib/forge-std/src/StdConstants.sol
+contracts/lib/forge-std/src/StdError.sol
+contracts/lib/forge-std/src/StdInvariant.sol
+contracts/lib/forge-std/src/StdJson.sol
+contracts/lib/forge-std/src/StdMath.sol
+contracts/lib/forge-std/src/StdStorage.sol
+contracts/lib/forge-std/src/StdStyle.sol
+contracts/lib/forge-std/src/StdToml.sol
+contracts/lib/forge-std/src/StdUtils.sol
+contracts/lib/forge-std/src/Test.sol
+contracts/lib/forge-std/src/Vm.sol
+contracts/lib/forge-std/src/console.sol
+contracts/lib/forge-std/src/console2.sol
+contracts/lib/forge-std/src/interfaces/IERC1155.sol
+contracts/lib/forge-std/src/interfaces/IERC165.sol
+contracts/lib/forge-std/src/interfaces/IERC20.sol
+contracts/lib/forge-std/src/interfaces/IERC4626.sol
+contracts/lib/forge-std/src/interfaces/IERC6909.sol
+contracts/lib/forge-std/src/interfaces/IERC721.sol
+contracts/lib/forge-std/src/interfaces/IERC7540.sol
+contracts/lib/forge-std/src/interfaces/IERC7575.sol
+contracts/lib/forge-std/src/interfaces/IMulticall3.sol
+contracts/lib/forge-std/src/safeconsole.sol
+contracts/lib/forge-std/test/CommonBase.t.sol
+contracts/lib/forge-std/test/StdAssertions.t.sol
+contracts/lib/forge-std/test/StdChains.t.sol
+contracts/lib/forge-std/test/StdCheats.t.sol
+contracts/lib/forge-std/test/StdConstants.t.sol
+contracts  main[m
+* [32mmaster[m
+  [31mremotes/origin/HEAD[m -> origin/main
+  [31mremotes/origin/main[m
+  [31mremotes/origin/master[m
+  [31mremotes/origin/wiseguysmith-patch-1[m
+  [31mremotes/origin/wiseguysmith-patch-2[m

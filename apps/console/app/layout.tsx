@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import { TestModeBanner } from './components/TestModeBanner';
+import { Navigation } from '@/components/Navigation';
 import { Toaster } from 'react-hot-toast';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -22,6 +23,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <Providers>
           <TestModeBanner />
+          <Navigation />
           <div className="min-h-screen bg-gray-50">
             {children}
           </div>
@@ -31,4 +33,6 @@ export default function RootLayout({
     </html>
   );
 }
+
+
 

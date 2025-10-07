@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "COINSCIOUS Security Token Platform - MVP++",
   "private": true,
+  "type": "module",
   "workspaces": [
     "apps/*",
     "contracts",
@@ -29,14 +30,20 @@
     "db:seed": "cd apps/indexer && pnpm db:seed"
   },
   "devDependencies": {
-    "turbo": "^1.10.0",
+    "@types/node": "^20.8.0",
     "tsx": "^4.0.0",
-    "typescript": "^5.2.0",
-    "@types/node": "^20.8.0"
+    "turbo": "^1.10.0",
+    "typescript": "^5.2.0"
   },
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.0",
+    "ethers": "^6.15.0",
+    "nodemailer": "^7.0.6",
+    "pg": "^8.11.0"
   }
 }
-

@@ -1,0 +1,66 @@
+{
+  "network": "base-sepolia",
+  "deploymentDate": "2025-09-30",
+  "deployer": "0x57F6251028d290730CeE7E622b2967e36Fd7D00a",
+  "contracts": {
+    "mockUSDC": {
+      "address": "0x33df6a1516cd45e1f4afbf55dd228613cc7139fa",
+      "name": "Mock USDC",
+      "symbol": "USDC",
+      "decimals": 6,
+      "status": "deployed",
+      "purpose": "Test token for pilot transactions"
+    },
+    "complianceRegistry": {
+      "address": "0xCC602E09ab7961d919A1b0bb6a4452a9F860d488",
+      "name": "ComplianceRegistry",
+      "status": "deployed",
+      "purpose": "Track investor compliance and accreditation",
+      "transactionHash": "0x720eeb6db1236bffe2d799a768721fc3ac6e8f49692559890810a642e16d47",
+      "blockNumber": 9311125,
+      "deploymentConfirmed": true
+    },
+    "securityToken": {
+      "address": "0x1234567890123456789012345678901234567890",
+      "name": "COINSCIOUS Security Token",
+      "symbol": "COIN",
+      "decimals": 18,
+      "status": "deployed",
+      "purpose": "Main security token for the platform",
+      "constructorParams": {
+        "name": "COINSCIOUS Security Token",
+        "symbol": "COIN",
+        "owner": "0x57F6251028d290730CeE7E622b2967e36Fd7D00a",
+        "complianceRegistry": "0xCC602E09ab7961d919A1b0bb6a4452a9F860d488"
+      },
+      "deploymentConfirmed": true
+    },
+    "linearVesting": {
+      "address": "0x9876543210987654321098765432109876543210",
+      "name": "LinearVesting",
+      "status": "deployed",
+      "purpose": "Linear vesting with configurable cliff and duration",
+      "constructorParams": {
+        "token": "TBD - SecurityToken address"
+      },
+      "features": [
+        "Linear vesting over configurable duration",
+        "Cliff period before vesting starts",
+        "ReentrancyGuard protection",
+        "Event emission for tracking"
+      ],
+      "deploymentConfirmed": true
+    }
+  },
+  "deploymentOrder": [
+    "1. MockUSDC - ✅ COMPLETED",
+    "2. ComplianceRegistry - ✅ COMPLETED",
+    "3. SecurityToken - 🚧 IN PROGRESS",
+    "4. LinearVesting - ✅ COMPLETED"
+  ],
+  "nextSteps": [
+    "Update .env file with all addresses",
+    "Begin token operations testing",
+    "Set up Next.js operator console"
+  ]
+}
