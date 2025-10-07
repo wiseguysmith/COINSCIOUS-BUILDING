@@ -1,0 +1,25 @@
+# Global code owners
+* @wiseguysmith
+
+# Smart contracts require security review
+/contracts/ @wiseguysmith
+/contracts/src/ @wiseguysmith
+/contracts/test/ @wiseguysmith
+
+# Critical security files
+/.github/workflows/ @wiseguysmith
+/.github/dependabot.yml @wiseguysmith
+/.github/CODEOWNERS @wiseguysmith
+
+# Environment and secrets
+/.env* @wiseguysmith
+/secrets/ @wiseguysmith
+
+# Documentation
+/docs/ @wiseguysmith
+*.md @wiseguysmith
+
+# Configuration files
+/package.json @wiseguysmith
+/pnpm-workspace.yaml @wiseguysmith
+/turbo.json @wiseguysmith

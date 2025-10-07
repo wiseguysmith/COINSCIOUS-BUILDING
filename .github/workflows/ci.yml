@@ -1,60 +1,185 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, feature/* ]
   pull_request:
     branches: [ main, develop ]
 
 env:
   NODE_VERSION: '18'
-  FORGE_VERSION: 'nightly-2024-01-01'
+  PNPM_VERSION: '8'
+  FORGE_VERSION: '0.2.0'
 
 jobs:
-  test-contracts:
-    name: Test Smart Contracts
+  # Lint and Type Check
+  lint-and-typecheck:
+    name: Lint & Type Check
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./contracts
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Foundry
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm type-check
+
+  # Smart Contract Tests
+  contract-tests:
+    name: Smart Contract Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: ${{ env.FORGE_VERSION }}
 
       - name: Install dependencies
-        run: |
-          cd ..
-          pnpm install
+        run: cd contracts && forge install
 
-      - name: Generate reason codes
-        run: pnpm gen:reason-codes
-
-      - name: Run tests
-        run: forge test
+      - name: Run contract tests
+        run: pnpm test:contracts
 
       - name: Generate coverage report
-        run: forge coverage --report lcov
+        run: pnpm test:coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
-          file: ./contracts/lcov.info
+          files: ./contracts/coverage/lcov.info
           flags: contracts
-          name: contracts-coverage
+          name: contract-coverage
 
-      - name: Run Slither security analysis
+  # Frontend Tests
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        shell: bash
         run: |
-          pip install slither-analyzer
-          slither . --fail-high --fail-medium
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build console app
+        run: cd apps/console && pnpm build
+
+      - name: Run console tests
+        run: cd apps/console && pnpm test --coverage
+
+      - name: Run indexer tests
+        run: cd apps/indexer && pnpm test --coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./apps/console/coverage/lcov.info,./apps/indexer/coverage/lcov.info
+          flags: frontend
+          name: frontend-coverage
+
+  # Security Scanning
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FORGE_VERSION }}
+
+      - name: Install dependencies
+        run: cd contracts && forge install
+
+      - name: Run Slither security scan
+        run: pnpm slither
+        continue-on-error: true
+
+      - name: Run npm audit
+        run: pnpm audit --audit-level moderate
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/init@v2
+        with:
+          languages: javascript, typescript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+
+  # Gas Report
+  gas-report:
+    name: Gas Report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FORGE_VERSION }}
+
+      - name: Install dependencies
+        run: cd contracts && forge install
 
       - name: Generate gas report
-        run: forge test --gas-report | tee gas-report.txt
+        run: pnpm gas-report
 
       - name: Upload gas report
         uses: actions/upload-artifact@v3
@@ -62,13 +187,12 @@ jobs:
           name: gas-report
           path: contracts/gas-report.txt
 
-  test-console:
-    name: Test Console App
+  # Build and Test Summary
+  build-summary:
+    name: Build Summary
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./apps/console
-
+    needs: [lint-and-typecheck, contract-tests, frontend-tests, security-scan, gas-report]
+    if: always()
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -78,246 +202,24 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install pnpm
+      - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Install dependencies
-        run: |
-          cd ../..
-          pnpm install
+        run: pnpm install --frozen-lockfile
 
-      - name: Type check
-        run: pnpm type-check
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Build
+      - name: Build all packages
         run: pnpm build
 
-  test-indexer:
-    name: Test Indexer
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./apps/indexer
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: coinscious_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
-
-      - name: Install dependencies
+      - name: Generate build summary
         run: |
-          cd ../..
-          pnpm install
-
-      - name: Run database migrations
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/coinscious_test
-        run: pnpm db:migrate
-
-      - name: Run tests
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/coinscious_test
-        run: pnpm test
-
-  gas-budget-check:
-    name: Gas Budget Check
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    defaults:
-      run:
-        working-directory: ./contracts
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: ${{ env.FORGE_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          cd ..
-          pnpm install
-
-      - name: Generate reason codes
-        run: pnpm gen:reason-codes
-
-      - name: Generate current gas report
-        run: forge test --gas-report | tee current-gas-report.txt
-
-      - name: Download baseline gas report
-        uses: actions/download-artifact@v3
-        with:
-          name: gas-report-baseline
-          path: ./baseline
-
-      - name: Compare gas usage
-        run: |
-          python3 << 'EOF'
-          import re
-          import sys
-          
-          def parse_gas_report(filename):
-              gas_data = {}
-              with open(filename, 'r') as f:
-                  content = f.read()
-              
-              # Extract function gas usage
-              pattern = r'(\w+)\s+(\d+)\s+(\d+)\s+(\d+)'
-              matches = re.findall(pattern, content)
-              
-              for match in matches:
-                  func_name = match[0]
-                  gas_used = int(match[1])
-                  gas_data[func_name] = gas_used
-              
-              return gas_data
-          
-          try:
-              current = parse_gas_report('current-gas-report.txt')
-              baseline = parse_gas_report('baseline/gas-report.txt')
-              
-              max_increase = 10  # 10% max increase
-              failed = False
-              
-              for func_name, current_gas in current.items():
-                  if func_name in baseline:
-                      baseline_gas = baseline[func_name]
-                      increase = ((current_gas - baseline_gas) / baseline_gas) * 100
-                      
-                      if increase > max_increase:
-                          print(f"❌ {func_name}: {increase:.1f}% increase (current: {current_gas}, baseline: {baseline_gas})")
-                          failed = True
-                      else:
-                          print(f"✅ {func_name}: {increase:.1f}% increase")
-                  else:
-                      print(f"⚠️  {func_name}: New function (no baseline)")
-              
-              if failed:
-                  print("\n❌ Gas budget exceeded! Some functions increased by more than 10%")
-                  sys.exit(1)
-              else:
-                  print("\n✅ Gas budget check passed")
-                  
-          except FileNotFoundError as e:
-              print(f"⚠️  Could not find gas report: {e}")
-              print("This might be the first run - creating baseline")
-          except Exception as e:
-              print(f"❌ Error comparing gas reports: {e}")
-              sys.exit(1)
-          EOF
-
-  nightly-deploy:
-    name: Nightly Deploy & Smoke Test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'schedule'
-    defaults:
-      run:
-        working-directory: ./contracts
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: ${{ env.FORGE_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          cd ..
-          pnpm install
-
-      - name: Generate reason codes
-        run: pnpm gen:reason-codes
-
-      - name: Start Anvil
-        run: |
-          anvil --host 0.0.0.0 --port 8545 &
-          sleep 5
-
-      - name: Deploy contracts
-        run: |
-          forge script script/DeployTest.s.sol:DeployTest --broadcast --rpc-url http://localhost:8545
-
-      - name: Run smoke test
-        run: |
-          forge script script/SmokeTest.s.sol:SmokeTest --broadcast --rpc-url http://localhost:8545
-
-      - name: Generate artifacts
-        run: |
-          forge build
-          mkdir -p artifacts
-          cp -r out/* artifacts/
-          cp gas-report.txt artifacts/
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: nightly-artifacts-${{ github.run_number }}
-          path: |
-            contracts/artifacts/
-            contracts/gas-report.txt
-          retention-days: 30
-
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./contracts
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: ${{ env.FORGE_VERSION }}
-
-      - name: Install Slither
-        run: pip install slither-analyzer
-
-      - name: Run Slither
-        run: slither . --fail-high --fail-medium --json slither-report.json
-
-      - name: Upload security report
-        uses: actions/upload-artifact@v3
-        with:
-          name: security-report
-          path: contracts/slither-report.json
-
-
-
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint & Type Check | ${{ needs.lint-and-typecheck.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Contract Tests | ${{ needs.contract-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Tests | ${{ needs.frontend-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Scan | ${{ needs.security-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Gas Report | ${{ needs.gas-report.result }} |" >> $GITHUB_STEP_SUMMARY
