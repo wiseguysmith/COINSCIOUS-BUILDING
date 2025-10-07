@@ -10,6 +10,10 @@ import { logger } from './logger';
 import { EventIndexer } from './indexer';
 import { AlertService } from './alerts';
 import { DatabaseService } from './database';
+import { EmailService } from './email-service';
+import { MetricsCollector } from './metrics';
+import { HealthMonitor } from './health';
+import { ObservabilityService } from './observability-service';
 
 // Load environment variables
 require('dotenv').config();
@@ -32,6 +36,10 @@ class IndexerService {
   private db: DatabaseService;
   private indexer: EventIndexer;
   private alerts: AlertService;
+  private email: EmailService;
+  private metrics: MetricsCollector;
+  private health: HealthMonitor;
+  private observability: ObservabilityService;
   private deployments: Deployments;
   private isRunning = false;
 
@@ -48,11 +56,38 @@ class IndexerService {
     // Initialize alert service
     this.alerts = new AlertService();
 
+    // Initialize email service
+    this.email = new EmailService();
+
+    // Initialize metrics collector
+    this.metrics = new MetricsCollector(this.db);
+
+    // Initialize health monitor
+    this.health = new HealthMonitor(this.client, this.db, this.alerts);
+
     // Load deployments
     this.loadDeployments();
 
     // Initialize event indexer
     this.indexer = new EventIndexer(this.client, this.db, this.alerts, this.deployments);
+
+    // Initialize observability service
+    this.observability = new ObservabilityService(
+      this.db,
+      this.alerts,
+      this.email,
+      this.metrics,
+      this.health,
+      {
+        healthCheckInterval: parseInt(process.env.HEALTH_CHECK_INTERVAL || '5'),
+        metricsCollectionInterval: parseInt(process.env.METRICS_COLLECTION_INTERVAL || '5'),
+        dashboardUpdateInterval: parseInt(process.env.DASHBOARD_UPDATE_INTERVAL || '10'),
+        dailyReportTime: process.env.DAILY_REPORT_TIME || '09:00',
+        alertEmailRecipients: (process.env.ALERT_EMAIL_RECIPIENTS || '').split(',').filter(Boolean),
+        dashboardEmailRecipients: (process.env.DASHBOARD_EMAIL_RECIPIENTS || '').split(',').filter(Boolean),
+        dailyReportRecipients: (process.env.DAILY_REPORT_RECIPIENTS || '').split(',').filter(Boolean)
+      }
+    );
   }
 
   private loadDeployments() {
@@ -84,6 +119,10 @@ class IndexerService {
       await this.indexer.start();
       logger.info('Event indexer started');
 
+      // Start observability service
+      await this.observability.start();
+      logger.info('Observability service started');
+
       // Start periodic tasks
       this.startPeriodicTasks();
 
@@ -105,6 +144,7 @@ class IndexerService {
       logger.info('Stopping indexer service...');
       
       await this.indexer.stop();
+      await this.observability.stop();
       await this.db.close();
       
       this.isRunning = false;
